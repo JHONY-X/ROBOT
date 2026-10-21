@@ -1,0 +1,21 @@
+POST http://localhost:8000/user/login/
+host: localhost:8000
+Content-Type: application/json
+
+{
+    "email_address": "heranasefa21@gmail.com",
+    "password": "12121212"
+}
+
+###
+PATCH http://localhost:8000/user/change-profile/
+host: localhost:8000
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzkyNTEwODk3LCJpYXQiOjE3OTI1MTA1OTcsImp0aSI6IjM2NzExYjc1OTM0ODQyZmI4MjQ2OTBjYjI2MzYxZDA3IiwidXNlcl9pZCI6IjIiLCJsYXN0X2xvZ2luIjoiMjAyNi0xMC0yMFQxNToyODo0NS4xOTc0ODArMDA6MDAiLCJqb2luX2RhdGUiOiIyMDI2LTEwLTIwIiwiZmlyc3RfbmFtZSI6IkhlcmFuIiwibGFzdF9uYW1lIjoiQXNlZmEiLCJwaG9uZV9udW1iZXIiOiIwOTAwMDAwMDAwIiwiZW1haWxfYWRkcmVzcyI6ImhlcmFuYXNlZmEyMUBnbWFpbC5jb20iLCJyb2xlIjoiUHJvZmVzc2lvbmFscyJ9.Z2lCWU5sK4iRHyGqY5X6R6HrPlz5SLd2Fm4Xs8Z8hqM
+
+{
+    "first_name": "Heran",
+    "last_name": "Asefa",
+    "phone_number": "0900000002",
+    "profile_picture": null
+}
