@@ -6,16 +6,19 @@ import { Building2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SignOutButton } from "@/components/layout/SignOutButton";
 
-const PACKAGES = [
-  { name: "Basic", amount: 500, detail: "For smaller recruitment needs" },
-  { name: "Silver", amount: 1500, detail: "For growing healthcare teams" },
-  { name: "Gold", amount: 3000, detail: "For high-volume recruitment" },
-] as const;
+interface SubscriptionPackage {
+  name: string;
+  amount: number;
+  annualTraineeCapacity: number | null;
+  discountPercent: number;
+  costPerTrainee: number;
+  description: string;
+}
 
 interface EmployerAccount {
   organizationName: string;
   status: string;
-  packageName?: (typeof PACKAGES)[number]["name"];
+  packageName?: string;
   paymentStatus?: string;
   reviewNote?: string;
 }
@@ -23,19 +26,26 @@ interface EmployerAccount {
 export default function EmployerPackagesPage() {
   const router = useRouter();
   const [account, setAccount] = useState<EmployerAccount | null>(null);
-  const [selectedPackage, setSelectedPackage] = useState<(typeof PACKAGES)[number]["name"] | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSelecting, setIsSelecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
 
   useEffect(() => {
     let active = true;
-    fetch("/api/demo/employer/activation", { cache: "no-store" })
-      .then(async (response) => {
-        const result = (await response.json()) as { account?: EmployerAccount; error?: string };
-        if (!response.ok || !result.account) throw new Error(result.error ?? "Could not load employer account.");
+    Promise.all([
+      fetch("/api/demo/employer/activation", { cache: "no-store" }),
+      fetch("/api/demo/subscriptions", { cache: "no-store" }),
+    ])
+      .then(async ([accountResponse, packageResponse]) => {
+        const result = (await accountResponse.json()) as { account?: EmployerAccount; error?: string };
+        const packageResult = (await packageResponse.json()) as { packages?: SubscriptionPackage[]; error?: string };
+        if (!accountResponse.ok || !packageResponse.ok) throw new Error(result.error ?? packageResult.error ?? "Could not load subscriptions.");
+        if (!result.account || !packageResult.packages) throw new Error(result.error ?? "Could not load employer account.");
         if (active) {
           setAccount(result.account);
+          setPackages(packageResult.packages);
           setSelectedPackage(result.account.packageName ?? null);
         }
       })
@@ -97,7 +107,7 @@ export default function EmployerPackagesPage() {
         {isLoading ? <p className="py-8 text-sm text-slate-600">Loading packages...</p> : (
           <>
             <section className="grid gap-4 md:grid-cols-3" aria-label="Available packages">
-              {PACKAGES.map((item) => (
+              {packages.map((item) => (
                 <label key={item.name} className={`cursor-pointer rounded-2xl border bg-white p-5 shadow-sm transition ${selectedPackage === item.name ? "border-primary-600 ring-2 ring-primary-100" : "border-slate-200"}`}>
                   <input
                     type="radio"
@@ -111,8 +121,9 @@ export default function EmployerPackagesPage() {
                     <span className="text-lg font-bold text-slate-900">{item.name}</span>
                     {selectedPackage === item.name && <CheckCircle2 className="h-5 w-5 text-primary-700" aria-label="Selected" />}
                   </div>
-                  <p className="mt-2 text-2xl font-bold text-primary-800">{item.amount.toLocaleString()} ETB</p>
-                  <p className="mt-2 text-sm text-slate-600">{item.detail}</p>
+                  <p className="mt-2 text-2xl font-bold text-primary-800">{item.amount.toLocaleString()} ETB {item.annualTraineeCapacity === null ? "/ trainee / year" : "/ year"}</p>
+                  <p className="mt-2 text-sm text-slate-600">{item.annualTraineeCapacity === null ? "Unlimited annual training capacity" : `${item.annualTraineeCapacity} trainees per year`}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.discountPercent}% discount · {item.costPerTrainee.toLocaleString()} ETB per trainee</p>
                 </label>
               ))}
             </section>

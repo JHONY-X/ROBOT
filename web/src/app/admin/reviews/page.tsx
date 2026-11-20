@@ -45,6 +45,7 @@ interface ReviewQueue {
     transactionId: string;
     proofFileName: string;
     proofDataUrl: string;
+    receiptUrl: string;
     submittedAt: string;
   }[];
 }
@@ -191,7 +192,11 @@ export default function AdminWorkflowReviewsPage() {
                   <Button type="button" size="sm" variant="outline" className="gap-1 text-red-700" disabled={isReviewing !== null} onClick={() => review("payment", payment.employerId, false)}><XCircle className="h-4 w-4" /> Reject</Button>
                 </div>
               </div>
-              {payment.proofDataUrl && <a href={payment.proofDataUrl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-primary-700 hover:underline">View receipt image: {payment.proofFileName}</a>}
+              {payment.receiptUrl ? (
+                <a href={payment.receiptUrl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-primary-700 hover:underline">Open payment receipt link</a>
+              ) : payment.proofDataUrl ? (
+                <a href={payment.proofDataUrl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-primary-700 hover:underline">View legacy receipt image: {payment.proofFileName}</a>
+              ) : null}
             </div>
           )) : <p className="py-6 text-sm text-slate-500">No employer payment proofs are waiting for review.</p>}
         </section>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
 import { placementService, PlacementRecord } from "@/lib/api/services/placement";
+import { notificationService } from "@/lib/api/services/notification";
 import { Briefcase, MapPin, Calendar, CheckCircle2, User, Building2, Clock } from "lucide-react";
 
 export default function EmployerPlacementsPage() {
@@ -43,6 +44,20 @@ export default function EmployerPlacementsPage() {
     if (!selectingId || !startDate) return;
     setProcessingId(selectingId);
     await placementService.confirmSelection(selectingId, startDate);
+    const usageResponse = await fetch("/api/demo/employer/usage", { method: "POST" });
+    if (!usageResponse.ok) {
+      const result = await usageResponse.json();
+      alert(typeof result.error === "string" ? result.error : "Could not update subscription usage.");
+    } else {
+      const usage = await usageResponse.json() as { traineesUsed: number; remaining: number | null; capacity: number | null; endsAt: string };
+      const placement = placements.find((item) => item.id === selectingId);
+      notificationService.pushNotification(
+        "Subscription usage updated",
+        `${placement?.candidateName ?? "Employment"} confirmed. ${usage.traineesUsed}${usage.capacity === null ? " trainees used" : ` of ${usage.capacity} trainees used (${usage.remaining} remaining)`}. Package ends ${new Date(usage.endsAt).toLocaleDateString()}.`,
+        "info",
+        "employer"
+      );
+    }
     setSelectingId(null);
     setStartDate("");
     await fetchPlacements();

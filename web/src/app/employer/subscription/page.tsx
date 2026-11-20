@@ -1,38 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
-import { paymentService, SUBSCRIPTION_PACKAGES, PackageTier, PaymentStatus } from "@/lib/api/services/payment";
-import { CheckCircle2, ShieldCheck, CreditCard, Loader2, AlertTriangle, Receipt } from "lucide-react";
+import { CheckCircle2, ShieldCheck, CreditCard } from "lucide-react";
 
 export default function EmployerSubscriptionPage() {
-  const [selectedTier, setSelectedTier] = useState<PackageTier | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
+  const router = useRouter();
+  const [subscription, setSubscription] = useState<{ startsAt: string; endsAt: string; traineesUsed: number } | undefined>();
+  const [packageName, setPackageName] = useState("No active package");
+  const [capacity, setCapacity] = useState<number | null>(null);
+  const [dynamicPackages, setDynamicPackages] = useState<{ name: string; amount: number; annualTraineeCapacity: number | null; discountPercent: number; costPerTrainee: number }[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/demo/employer/activation", { cache: "no-store" }),
+      fetch("/api/demo/subscriptions", { cache: "no-store" }),
+    ]).then(async ([accountResponse, packageResponse]) => {
+      const accountResult = await accountResponse.json();
+      const packageResult = await packageResponse.json();
+      setDynamicPackages(packageResult.packages ?? []);
+      const account = accountResult.account;
+      if (account?.packageName) setPackageName(account.packageName);
+      setSubscription(account?.subscription);
+      setCapacity(packageResult.packages?.find((pkg: { name: string }) => pkg.name === account?.packageName)?.annualTraineeCapacity ?? null);
+    }).catch((error) => console.error("Could not load subscription status.", error));
+  }, []);
 
   // This function simulates the redirect to the payment gateway and the webhook return
-  const handleSubscribe = async (tier: PackageTier) => {
-    setSelectedTier(tier);
-    setIsProcessing(true);
-    setPaymentStatus("Pending");
-
-    try {
-      // 1. Get checkout URL from backend
-      const { transactionId } = await paymentService.initiatePayment(tier);
-      
-      // 2. Simulate redirecting to gateway and returning
-      // In a real app: window.location.href = checkoutUrl;
-      
-      // 3. Poll the backend to verify the actual status (NOT relying on UI)
-      const verifiedStatus = await paymentService.verifyPaymentStatus(transactionId);
-      setPaymentStatus(verifiedStatus);
-      
-    } catch (error) {
-      setPaymentStatus("Failed");
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleSubscribe = () => {
+    router.push("/employer/packages");
   };
 
   return (
@@ -45,95 +43,66 @@ export default function EmployerSubscriptionPage() {
         </div>
 
         {/* Current Status Banner */}
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-4">
+        <div className={`${subscription ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-200"} border rounded-xl p-4 flex items-start gap-4`}>
           <ShieldCheck className="w-6 h-6 text-emerald-600 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-emerald-900">Active Subscription: Gold Package</h3>
-            <p className="text-sm text-emerald-700 mt-1">Valid until Dec 31, 2026. You have Unlimited candidate views.</p>
+            <h3 className="font-semibold text-emerald-900">Active Subscription: {packageName}</h3>
+            <p className="text-sm text-emerald-700 mt-1">
+              {subscription
+                ? `Valid ${new Date(subscription.startsAt).toLocaleDateString()} – ${new Date(subscription.endsAt).toLocaleDateString()}. ${capacity === null ? "Unlimited" : `${Math.max(0, capacity - subscription.traineesUsed)} of ${capacity}`} trainees remaining.`
+                : "Choose a package and submit your payment receipt for approval."}
+            </p>
           </div>
         </div>
 
         {/* Packages Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {SUBSCRIPTION_PACKAGES.map((pkg) => (
-            <div 
-              key={pkg.tier} 
-              className={`relative bg-white border rounded-2xl p-6 flex flex-col transition-all ${
-                selectedTier === pkg.tier ? "border-primary-500 ring-2 ring-primary-500 shadow-md" : "border-slate-200 shadow-sm hover:border-primary-200"
-              }`}
+          {dynamicPackages.map((pkg) => (
+            <div
+              key={pkg.name}
+              className="relative bg-white border border-slate-200 rounded-2xl p-6 flex flex-col shadow-sm hover:border-primary-200 transition-all"
             >
-              {pkg.tier === "Gold" && (
+              {pkg.name === "Gold" && (
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-amber-400 to-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
                   Most Popular
                 </div>
               )}
               
               <div className="mb-6">
-                <h3 className="text-lg font-bold text-slate-900">{pkg.tier}</h3>
+                <h3 className="text-lg font-bold text-slate-900">{pkg.name}</h3>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold text-slate-900">{pkg.priceETB}</span>
-                  <span className="text-sm text-slate-500">ETB / mo</span>
+                  <span className="text-3xl font-extrabold text-slate-900">{pkg.amount.toLocaleString()}</span>
+                  <span className="text-sm text-slate-500">
+                    ETB {pkg.annualTraineeCapacity === null ? "/ trainee / year" : "/ year"}
+                  </span>
                 </div>
               </div>
 
               <ul className="space-y-3 mb-8 flex-1">
-                {pkg.features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                {[
+                  pkg.annualTraineeCapacity === null ? "Unlimited annual training capacity" : `${pkg.annualTraineeCapacity} trainees per year`,
+                  `${pkg.discountPercent}% discount on hospital share`,
+                  `${pkg.costPerTrainee.toLocaleString()} ETB per trainee`,
+                ].map((feature) => (
+                  <li key={feature} className="flex items-start gap-2 text-sm text-slate-600">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
                     {feature}
                   </li>
                 ))}
               </ul>
 
-              <Button 
-                variant={pkg.tier === "Gold" ? "primary" : "outline"} 
+              <Button
+                variant={pkg.name === "Gold" ? "primary" : "outline"}
                 className="w-full"
-                onClick={() => handleSubscribe(pkg.tier)}
-                disabled={isProcessing}
+                onClick={handleSubscribe}
               >
-                {isProcessing && selectedTier === pkg.tier ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
-                Select {pkg.tier}
+                <CreditCard className="w-4 h-4 mr-2" />
+                Select {pkg.name}
               </Button>
             </div>
           ))}
         </div>
 
-        {/* Payment Gateway Simulation Result */}
-        {paymentStatus && (
-          <div className={`p-6 rounded-xl border flex items-start gap-4 animate-in fade-in slide-in-from-bottom-4 ${
-            paymentStatus === "Successful" ? "bg-emerald-50 border-emerald-200" :
-            paymentStatus === "Pending" ? "bg-amber-50 border-amber-200" :
-            "bg-red-50 border-red-200"
-          }`}>
-            {paymentStatus === "Successful" ? <CheckCircle2 className="w-6 h-6 text-emerald-600" /> :
-             paymentStatus === "Pending" ? <Loader2 className="w-6 h-6 text-amber-600 animate-spin" /> :
-             <AlertTriangle className="w-6 h-6 text-red-600" />}
-            
-            <div>
-              <h3 className={`font-semibold ${
-                paymentStatus === "Successful" ? "text-emerald-900" :
-                paymentStatus === "Pending" ? "text-amber-900" : "text-red-900"
-              }`}>
-                Payment Status: {paymentStatus}
-              </h3>
-              <p className={`text-sm mt-1 ${
-                paymentStatus === "Successful" ? "text-emerald-700" :
-                paymentStatus === "Pending" ? "text-amber-700" : "text-red-700"
-              }`}>
-                {paymentStatus === "Successful" 
-                  ? "Your payment has been verified by the gateway. Your account is now active." 
-                  : paymentStatus === "Pending"
-                  ? "Waiting for the payment provider to confirm your transaction. This page will update automatically."
-                  : "The transaction was declined or failed. Please try again or contact support."}
-              </p>
-              {paymentStatus === "Successful" && (
-                <Button variant="outline" size="sm" className="mt-3 bg-white">
-                  <Receipt className="w-4 h-4 mr-2" /> Download Receipt
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </DashboardLayout>
   );

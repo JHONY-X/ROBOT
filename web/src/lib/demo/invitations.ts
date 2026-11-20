@@ -90,12 +90,22 @@ export interface DemoReviewQueue {
     transactionId: string;
     proofFileName: string;
     proofDataUrl: string;
+    receiptUrl: string;
     submittedAt: string;
   }[];
 }
 
 function hash(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:") && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function passwordDigest(password: string, salt: Buffer): Buffer {
@@ -441,16 +451,8 @@ export function revokeDemoSession(sessionId: string): void {
 }
 
 export function listDemoReviewQueue(): DemoReviewQueue {
-  const packageAmount = (packageName: "Basic" | "Silver" | "Gold" | undefined) => {
-    switch (packageName) {
-      case "Silver":
-        return PACKAGE_AMOUNTS.Silver;
-      case "Gold":
-        return PACKAGE_AMOUNTS.Gold;
-      default:
-        return PACKAGE_AMOUNTS.Basic;
-    }
-  };
+  const packageAmount = (packageName: string | undefined) =>
+    demoStore.subscriptionPackages.get(packageName ?? "")?.amount ?? 0;
 
   return {
     otps: [...demoStore.otps.values()]
@@ -505,6 +507,7 @@ export function listDemoReviewQueue(): DemoReviewQueue {
         transactionId: employer.payment?.transactionId ?? "",
         proofFileName: employer.payment?.proofFileName ?? "",
         proofDataUrl: employer.payment?.proofDataUrl ?? "",
+        receiptUrl: employer.payment?.receiptUrl ?? "",
         submittedAt: employer.payment?.submittedAt ?? "",
       })),
   };
@@ -527,16 +530,29 @@ export function reviewDemoEmployerPayment(
   account.payment.status = approved ? "Approved" : "Rejected";
   account.payment.reviewNote = note;
   account.status = approved ? "Approved" : "Pending payment";
+  if (approved) {
+    const now = new Date();
+    const pkg = demoStore.subscriptionPackages.get(account.selectedPackage ?? "");
+    const durationMonths = pkg?.durationMonths ?? 12;
+    const endsAt = new Date(now);
+    endsAt.setMonth(endsAt.getMonth() + durationMonths);
+    account.subscription = {
+      startsAt: now.toISOString(),
+      endsAt: endsAt.toISOString(),
+      traineesUsed: 0,
+    };
+  }
   return true;
 }
 
 export function submitDemoEmployerPayment(input: {
   sessionId: string;
-  packageName: "Basic" | "Silver" | "Gold";
+  packageName: string;
   method: string;
   transactionId: string;
-  proofFileName: string;
-  proofDataUrl: string;
+  receiptUrl: string;
+  proofFileName?: string;
+  proofDataUrl?: string;
 }): { success: boolean; message: string; employerId?: string } {
   const session = demoStore.sessions.get(input.sessionId);
   const employer = session?.role === "employer"
@@ -550,19 +566,18 @@ export function submitDemoEmployerPayment(input: {
     return { success: false, message: "This employer account is not ready to submit payment." };
   }
   if (
-    !["Basic", "Silver", "Gold"].includes(input.packageName) ||
+    !demoStore.subscriptionPackages.has(input.packageName) ||
     !["Telebirr", "M-Pesa", "Commercial Bank of Ethiopia (CBE)", "Dashen Bank", "Other Ethiopian bank"].includes(input.method) ||
     !input.transactionId.trim() ||
     input.transactionId.trim().length > 120 ||
-    !input.proofFileName ||
-    input.proofDataUrl.length > 2_800_000 ||
-    !/^data:image\/(png|jpeg|webp);base64,/.test(input.proofDataUrl)
+    !isHttpUrl(input.receiptUrl.trim())
   ) {
-    return { success: false, message: "Select a package and payment method, enter a transaction ID, and attach an image up to 2 MB." };
+    return { success: false, message: "Select a package and payment method, enter a transaction ID, and provide a valid receipt link." };
   }
   employer.payment = {
     method: input.method,
     transactionId: input.transactionId.trim(),
+    receiptUrl: input.receiptUrl.trim(),
     proofFileName: input.proofFileName,
     proofDataUrl: input.proofDataUrl,
     submittedAt: new Date().toISOString(),
@@ -574,7 +589,7 @@ export function submitDemoEmployerPayment(input: {
 
 export function selectDemoEmployerPackage(
   sessionId: string,
-  packageName: "Basic" | "Silver" | "Gold"
+  packageName: string
 ): { success: boolean; message: string } {
   const session = demoStore.sessions.get(sessionId);
   const employer = session?.role === "employer"
@@ -583,7 +598,8 @@ export function selectDemoEmployerPackage(
   if (!employer || employer.status !== "Pending payment") {
     return { success: false, message: "This employer account is not ready to choose a package." };
   }
-  if (!["Basic", "Silver", "Gold"].includes(packageName)) {
+  const pkg = demoStore.subscriptionPackages.get(packageName);
+  if (!pkg?.active) {
     return { success: false, message: "Choose one of the available packages." };
   }
   employer.selectedPackage = packageName;
@@ -601,11 +617,7 @@ export function getDemoEmployerActivation(sessionId: string) {
     packageName: employer.selectedPackage,
     paymentStatus: employer.payment?.status,
     reviewNote: employer.payment?.reviewNote,
+    subscription: employer.subscription,
+    receiptUrl: employer.payment?.receiptUrl,
   };
 }
-
-export const PACKAGE_AMOUNTS = {
-  Basic: 500,
-  Silver: 1500,
-  Gold: 3000,
-} as const;

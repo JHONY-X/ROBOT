@@ -10,6 +10,17 @@ export type AccountStatus =
   | "Rejected";
 export type EmployerPaymentStatus = "Pending" | "Approved" | "Rejected";
 
+export interface DemoSubscriptionPackage {
+  name: string;
+  amount: number;
+  annualTraineeCapacity: number | null;
+  discountPercent: number;
+  costPerTrainee: number;
+  durationMonths: number;
+  description: string;
+  active: boolean;
+}
+
 export interface DemoCandidateAccount {
   id: string;
   firstName: string;
@@ -41,12 +52,18 @@ export interface DemoEmployerAccount {
   emailVerified: boolean;
   status: AccountStatus;
   createdAt: string;
-  selectedPackage?: "Basic" | "Silver" | "Gold";
+  selectedPackage?: string;
+  subscription?: {
+    startsAt: string;
+    endsAt: string;
+    traineesUsed: number;
+  };
   payment?: {
     method: string;
     transactionId: string;
-    proofFileName: string;
-    proofDataUrl: string;
+    receiptUrl: string;
+    proofFileName?: string;
+    proofDataUrl?: string;
     submittedAt: string;
     status: EmployerPaymentStatus;
     reviewNote?: string;
@@ -86,6 +103,7 @@ export interface DemoStore {
   employers: Map<string, DemoEmployerAccount>;
   otps: Map<string, DemoOtp>;
   sessions: Map<string, DemoSession>;
+  subscriptionPackages: Map<string, DemoSubscriptionPackage>;
 }
 
 const globalDemoStore = globalThis as typeof globalThis & {
@@ -100,6 +118,12 @@ export const demoStore =
     employers: new Map(),
     otps: new Map(),
     sessions: new Map(),
+    subscriptionPackages: new Map<string, DemoSubscriptionPackage>([
+      ["Basic", { name: "Basic", amount: 136575, annualTraineeCapacity: 50, discountPercent: 10, costPerTrainee: 2731.5, durationMonths: 12, description: "Annual hospital training and job matching", active: true }],
+      ["Silver", { name: "Silver", amount: 386962.5, annualTraineeCapacity: 150, discountPercent: 15, costPerTrainee: 2579.75, durationMonths: 12, description: "Annual hospital training and job matching", active: true }],
+      ["Gold", { name: "Gold", amount: 1214000, annualTraineeCapacity: 500, discountPercent: 20, costPerTrainee: 2428, durationMonths: 12, description: "Annual hospital training and job matching", active: true }],
+      ["Premium", { name: "Premium", amount: 2276.25, annualTraineeCapacity: null, discountPercent: 25, costPerTrainee: 2276.25, durationMonths: 12, description: "Unlimited annual training capacity; charged per trainee", active: true }],
+    ]),
   });
 
 export function newDemoId(): string {

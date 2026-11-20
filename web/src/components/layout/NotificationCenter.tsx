@@ -14,11 +14,17 @@ export function NotificationCenter({ role }: NotificationCenterProps) {
 
   // Fetch notifications on mount
   useEffect(() => {
+    let active = true;
     const fetchNotifications = async () => {
       const data = await notificationService.getNotifications(role);
-      setNotifications(data);
+      if (active) setNotifications(data);
     };
     fetchNotifications();
+    window.addEventListener("rohobot-notification", fetchNotifications);
+    return () => {
+      active = false;
+      window.removeEventListener("rohobot-notification", fetchNotifications);
+    };
   }, [role]);
 
   // Close dropdown when clicking outside

@@ -23,15 +23,14 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid payment submission." }, { status: 400 });
   }
-  const { packageName, method, transactionId, proofFileName, proofDataUrl } = body;
+  const { packageName, method, transactionId, receiptUrl, proofFileName, proofDataUrl } = body;
   if (
-    (packageName !== "Basic" && packageName !== "Silver" && packageName !== "Gold") ||
+    typeof packageName !== "string" ||
     typeof method !== "string" ||
     typeof transactionId !== "string" ||
-    typeof proofFileName !== "string" ||
-    typeof proofDataUrl !== "string"
+    typeof receiptUrl !== "string"
   ) {
-    return NextResponse.json({ error: "Enter the package, payment details, transaction ID, and receipt image." }, { status: 400 });
+    return NextResponse.json({ error: "Enter the package, payment details, transaction ID, and receipt link." }, { status: 400 });
   }
 
   const result = submitDemoEmployerPayment({
@@ -39,8 +38,9 @@ export async function POST(request: NextRequest) {
     packageName,
     method,
     transactionId,
-    proofFileName,
-    proofDataUrl,
+    receiptUrl,
+    proofFileName: typeof proofFileName === "string" ? proofFileName : undefined,
+    proofDataUrl: typeof proofDataUrl === "string" ? proofDataUrl : undefined,
   });
   if (!result.success) {
     return NextResponse.json({ error: result.message }, { status: 400 });

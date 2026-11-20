@@ -43,7 +43,7 @@ export default function EmployerRegistrationPage() {
       return;
     }
     if (!licenseFile || licenseFile.size > MAX_FILE_BYTES) {
-      setErrorMessage("Attach the organization business license (maximum 2 MB).");
+      setErrorMessage("Attach the organization business license (maximum 5 MB).");
       return;
     }
     setIsSubmitting(true);
@@ -99,41 +99,11 @@ export default function EmployerRegistrationPage() {
         <div className="mb-6">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100 text-primary-700"><Building2 className="h-6 w-6" /></div>
           <h1 className="mt-4 text-3xl font-bold text-slate-900">Register your organization</h1>
-          <p className="mt-2 text-sm text-slate-600">Create an employer account, verify the authorized representative&apos;s email, then choose a package and submit payment proof.</p>
-        </div>
-
-        <div role="note" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Local demo only. Business-license files are held temporarily in server memory; do not upload real licenses or sensitive documents. The OTP is simulated and must be obtained from the admin demo inbox.
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-          <section className="space-y-4">
-            <h2 className="border-b border-slate-100 pb-3 font-semibold text-slate-900">Organization details</h2>
-            <label className="block text-sm font-medium text-slate-700">
-              Organization name
-              <input required maxLength={160} value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" autoComplete="organization" />
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-medium text-slate-700">
-                Organization type
-                <select required value={organizationType} onChange={(event) => setOrganizationType(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5">
-                  <option value="">Select type</option>
-                  {ORGANIZATION_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-                </select>
-              </label>
-              <label className="text-sm font-medium text-slate-700">
-                City
-                <input required maxLength={100} value={city} onChange={(event) => setCity(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" autoComplete="address-level2" />
-              </label>
-            </div>
-            <label className="block text-sm font-medium text-slate-700">
-              Subcity
-              <input required maxLength={100} value={subcity} onChange={(event) => setSubcity(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
-            </label>
-          </section>
 
           <section className="space-y-4">
-            <h2 className="border-b border-slate-100 pb-3 font-semibold text-slate-900">Contact details</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium text-slate-700">
                 HR email
@@ -144,7 +114,7 @@ export default function EmployerRegistrationPage() {
                 <input required type="tel" maxLength={30} value={organizationPhone} onChange={(event) => setOrganizationPhone(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" autoComplete="tel" />
               </label>
               <label className="text-sm font-medium text-slate-700">
-                Authorized representative email (OTP recipient)
+                Representative email (OTP recipient)
                 <input required type="email" maxLength={254} value={representativeEmail} onChange={(event) => setRepresentativeEmail(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
               </label>
               <label className="text-sm font-medium text-slate-700">
@@ -159,7 +129,7 @@ export default function EmployerRegistrationPage() {
             <label className="block text-sm font-medium text-slate-700">
               Business license
               <input required type="file" accept=".pdf,image/png,image/jpeg,image/webp" onChange={(event) => setLicenseFile(event.target.files?.[0] ?? null)} className="mt-1.5 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" />
-              <span className="mt-1 block text-xs text-slate-500">PDF, PNG, JPG, or WebP, up to 2 MB.</span>
+              <span className="mt-1 block text-xs text-slate-500">PDF, PNG, JPG, or WebP, up to 5 MB.</span>
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium text-slate-700">

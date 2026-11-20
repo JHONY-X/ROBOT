@@ -6,10 +6,20 @@ import { Button } from "@/components/ui/Button";
 import { adminService, Transaction } from "@/lib/api/services/admin";
 import { CreditCard, TrendingUp, RotateCcw, CheckCircle2, AlertCircle } from "lucide-react";
 
+interface SubscriptionPackage {
+  name: string;
+  amount: number;
+  annualTraineeCapacity: number | null;
+  discountPercent: number;
+  costPerTrainee: number;
+}
+
 export default function AdminFinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
+  const [savingPackage, setSavingPackage] = useState<string | null>(null);
 
   const fetchTransactions = async () => {
     setIsLoading(true);
@@ -29,6 +39,10 @@ export default function AdminFinancePage() {
       console.error("Failed to load transactions.", error);
       setIsLoading(false);
     });
+    fetch("/api/demo/subscriptions", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result: { packages?: SubscriptionPackage[] }) => setPackages(result.packages ?? []))
+      .catch((error: unknown) => console.error("Failed to load subscription packages.", error));
 
     return () => {
       active = false;
@@ -49,6 +63,33 @@ export default function AdminFinancePage() {
     await adminService.approvePendingPayment(id);
     await fetchTransactions();
     setProcessingId(null);
+  };
+
+  const updatePackageField = (name: string, field: keyof SubscriptionPackage, value: string) => {
+    setPackages((current) => current.map((pkg) => {
+      if (pkg.name !== name) return pkg;
+      if (field === "annualTraineeCapacity") {
+        return { ...pkg, annualTraineeCapacity: value === "" ? null : Number(value) };
+      }
+      return { ...pkg, [field]: Number(value) } as SubscriptionPackage;
+    }));
+  };
+
+  const savePackage = async (pkg: SubscriptionPackage) => {
+    setSavingPackage(pkg.name);
+    try {
+      const response = await fetch("/api/demo/subscriptions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pkg),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Could not update package.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not update package.");
+    } finally {
+      setSavingPackage(null);
+    }
   };
 
   return (
@@ -82,6 +123,35 @@ export default function AdminFinancePage() {
               <p className="text-sm text-slate-500">Pending Payments</p>
               <p className="text-2xl font-bold text-slate-900">{transactions.filter(t => t.status === "Pending").length}</p>
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+          <div className="mb-4">
+            <h2 className="font-semibold text-slate-900">Subscription packages</h2>
+            <p className="mt-1 text-sm text-slate-500">Admin-configurable annual amounts, trainee capacity, discounts, and trainee cost.</p>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {packages.map((pkg) => (
+              <div key={pkg.name} className="rounded-xl border border-slate-200 p-4">
+                <p className="mb-3 font-semibold text-slate-900">{pkg.name}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs font-medium text-slate-600">Annual amount or per-trainee rate (ETB)
+                    <input type="number" min="0" step="0.01" value={pkg.amount} onChange={(event) => updatePackageField(pkg.name, "amount", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                  </label>
+                  <label className="text-xs font-medium text-slate-600">Trainee capacity (blank = unlimited)
+                    <input type="number" min="0" value={pkg.annualTraineeCapacity ?? ""} onChange={(event) => updatePackageField(pkg.name, "annualTraineeCapacity", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                  </label>
+                  <label className="text-xs font-medium text-slate-600">Discount (%)
+                    <input type="number" min="0" max="100" step="0.01" value={pkg.discountPercent} onChange={(event) => updatePackageField(pkg.name, "discountPercent", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                  </label>
+                  <label className="text-xs font-medium text-slate-600">Cost per trainee (ETB)
+                    <input type="number" min="0" step="0.01" value={pkg.costPerTrainee} onChange={(event) => updatePackageField(pkg.name, "costPerTrainee", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                  </label>
+                </div>
+                <Button type="button" size="sm" className="mt-3" isLoading={savingPackage === pkg.name} disabled={savingPackage !== null} onClick={() => savePackage(pkg)}>Save {pkg.name}</Button>
+              </div>
+            ))}
           </div>
         </div>
 

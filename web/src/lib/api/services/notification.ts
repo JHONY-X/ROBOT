@@ -47,6 +47,7 @@ export const notificationService = {
       isRead: false,
     };
     DB_NOTIFICATIONS.unshift(newNotif);
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("rohobot-notification"));
     console.log(`🔔 [NOTIFICATION] For ${targetRole}: ${title}`);
     return newNotif;
   }

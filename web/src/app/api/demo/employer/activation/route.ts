@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getDemoEmployerActivation,
-  selectDemoEmployerPackage,
-} from "@/lib/demo/invitations";
+import {getDemoEmployerActivation,selectDemoEmployerPackage,} from "@/lib/demo/invitations";
+import { demoStore } from "@/lib/demo/store";
 import { isLocalDemoRequest } from "@/lib/demo/request-guards";
 
 export const runtime = "nodejs";
@@ -38,7 +36,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Choose an employer package." }, { status: 400 });
   }
-  if (packageName !== "Basic" && packageName !== "Silver" && packageName !== "Gold") {
+  if (typeof packageName !== "string" || !demoStore.subscriptionPackages.get(packageName)?.active) {
     return NextResponse.json({ error: "Choose one of the available packages." }, { status: 400 });
   }
   const result = selectDemoEmployerPackage(sessionId, packageName);
