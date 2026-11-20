@@ -22,6 +22,22 @@ export interface EmployerFeedback {
   submittedBy: string; // Employer representative name
 }
 
+export type CandidateFeedbackCategory =
+  | "Platform experience"
+  | "Job matching"
+  | "Employer interactions"
+  | "Other";
+
+export interface CandidateFeedback {
+  id: string;
+  candidateId: string;
+  candidateName: string;
+  category: CandidateFeedbackCategory;
+  rating: number;
+  comments: string;
+  submittedAt: string;
+}
+
 // Strictly internal in-memory database
 const DB_FEEDBACK: EmployerFeedback[] = [
   {
@@ -42,6 +58,7 @@ const DB_FEEDBACK: EmployerFeedback[] = [
     submittedBy: "Dr. Samuel Tadesse",
   }
 ];
+const DB_CANDIDATE_FEEDBACK: CandidateFeedback[] = [];
 
 export const feedbackService = {
   // ---- EMPLOYER ACTIONS ----
@@ -58,6 +75,41 @@ submitFeedback: async (feedback: Omit<EmployerFeedback, "id" | "submittedAt">): 
   );
   return { success: true };
 },
+
+  submitCandidateFeedback: async (
+    feedback: Omit<CandidateFeedback, "id" | "submittedAt">
+  ): Promise<CandidateFeedback> => {
+    const comments = feedback.comments.trim();
+    if (!feedback.candidateId || !feedback.candidateName.trim() || feedback.rating < 1 ||
+        feedback.rating > 5 || !Number.isInteger(feedback.rating) || !comments || comments.length > 2000) {
+      throw new Error("Provide a rating and feedback between 1 and 2,000 characters.");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const entry: CandidateFeedback = {
+      ...feedback,
+      comments,
+      id: `CF-${Date.now()}`,
+      submittedAt: new Date().toLocaleString(),
+    };
+    DB_CANDIDATE_FEEDBACK.unshift(entry);
+    notificationService.pushNotification(
+      "New Candidate Feedback",
+      `${entry.candidateName} submitted feedback about ${entry.category}.`,
+      "info",
+      "admin"
+    );
+    return entry;
+  },
+
+  getCandidateFeedback: async (candidateId: string): Promise<CandidateFeedback[]> => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return DB_CANDIDATE_FEEDBACK.filter((entry) => entry.candidateId === candidateId);
+  },
+
+  getAllCandidateFeedback: async (): Promise<CandidateFeedback[]> => {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return [...DB_CANDIDATE_FEEDBACK];
+  },
 
   // Employer can only see if they already submitted feedback for a specific interview
   checkIfFeedbackSubmitted: async (interviewId: string): Promise<boolean> => {

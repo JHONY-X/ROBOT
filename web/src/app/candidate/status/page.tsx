@@ -13,9 +13,6 @@ export default function CandidatePendingStatusPage() {
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
           Your email has been verified. A Rohobot admin must approve your candidate account before you can access recruitment features.
         </p>
-        <p role="note" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-          This is a local demo. After admin approval, sign out and sign in again to test the candidate workspace.
-        </p>
         <div className="mt-6 flex items-center justify-center gap-4">
           <SignOutButton />
           <Link href="/" className="text-sm font-semibold text-primary-700 hover:underline">Home</Link>

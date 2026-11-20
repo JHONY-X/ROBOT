@@ -20,7 +20,7 @@ export function PublicFooter() {
             <h2 className="text-sm font-semibold text-slate-900">Explore</h2>
             <ul className="mt-3 space-y-2.5 text-sm text-slate-600">
               <li><Link href="/#how-it-works" className="hover:text-accent-700">How it works</Link></li>
-              <li><Link href="/candidate/career" className="hover:text-accent-700">Career development</Link></li>
+              <li><Link href="/candidate/feedback" className="hover:text-accent-700">Candidate feedback</Link></li>
               <li><Link href="/employer/register" className="hover:text-accent-700">For employers</Link></li>
             </ul>
           </div>

@@ -2,18 +2,27 @@
 
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { feedbackService, EmployerFeedback } from "@/lib/api/services/feedback";
+import {
+  feedbackService,
+  type CandidateFeedback,
+  type EmployerFeedback,
+} from "@/lib/api/services/feedback";
 import { ShieldCheck, Star, Lock, FileText, ChevronDown, Search } from "lucide-react";
 
 export default function AdminFeedbackPage() {
   const [feedbacks, setFeedbacks] = useState<EmployerFeedback[]>([]);
+  const [candidateFeedbacks, setCandidateFeedbacks] = useState<CandidateFeedback[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchFeedback = async () => {
-      const data = await feedbackService.getAllFeedback();
-      setFeedbacks(data);
+      const [employerData, candidateData] = await Promise.all([
+        feedbackService.getAllFeedback(),
+        feedbackService.getAllCandidateFeedback(),
+      ]);
+      setFeedbacks(employerData);
+      setCandidateFeedbacks(candidateData);
       setIsLoading(false);
     };
     fetchFeedback();
@@ -36,7 +45,7 @@ export default function AdminFeedbackPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <ShieldCheck className="w-6 h-6 text-primary-600" /> Confidential Employer Feedback
+              <ShieldCheck className="w-6 h-6 text-primary-600" /> Confidential Feedback
             </h1>
             <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">
               <Lock className="w-3 h-3" /> This data is restricted to authorized Rohobot personnel only.
@@ -124,6 +133,33 @@ export default function AdminFeedbackPage() {
                       </p>
                     </div>
                   )}
+
+                  <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-100 bg-slate-50 p-4">
+                      <h2 className="font-semibold text-slate-900">Candidate Feedback ({candidateFeedbacks.length})</h2>
+                    </div>
+                    {isLoading ? (
+                      <p className="p-6 text-sm text-slate-500">Loading candidate feedback...</p>
+                    ) : candidateFeedbacks.length ? (
+                      <div className="divide-y divide-slate-100">
+                        {candidateFeedbacks.map((entry) => (
+                          <article key={entry.id} className="space-y-2 p-5">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <h3 className="font-semibold text-slate-900">{entry.candidateName}</h3>
+                                <p className="text-sm text-slate-600">{entry.category} · Candidate ID {entry.candidateId}</p>
+                              </div>
+                              <div className="text-right">
+                                {renderStars(entry.rating)}
+                                <p className="mt-1 text-xs text-slate-500">{entry.submittedAt}</p>
+                              </div>
+                            </div>
+                            <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{entry.comments}</p>
+                          </article>
+                        ))}
+                      </div>
+                    ) : <p className="p-6 text-sm text-slate-500">No candidate feedback has been submitted.</p>}
+                  </section>
                 </div>
               ))}
             </div>

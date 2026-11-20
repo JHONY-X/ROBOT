@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 export type DemoRole = "candidate" | "employer" | "admin";
 export type AccountStatus =
   | "Awaiting email verification"
+  | "Profile incomplete"
   | "Pending admin approval"
   | "Pending payment"
   | "Payment submitted"
@@ -37,6 +38,9 @@ export interface DemoCandidateAccount {
 
 export interface DemoEmployerAccount {
   id: string;
+  hrFirstName: string;
+  hrMiddleName: string;
+  hrLastName: string;
   organizationName: string;
   organizationType: string;
   city: string;

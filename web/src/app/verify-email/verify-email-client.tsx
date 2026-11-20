@@ -57,7 +57,7 @@ export function VerifyEmailClient({
       if (!response.ok || !result.success) throw new Error(result.message ?? result.error ?? "OTP verification failed.");
       setIsVerified(true);
       setNotice(result.message ?? "Email verified.");
-      router.replace(`/login?role=${role}&verified=1`);
+      router.replace(`/login?role=${role}&verified=1&email=${encodeURIComponent(email)}`);
     } catch (error) {
       console.error("Could not verify account email.", error);
       setErrorMessage(error instanceof Error ? error.message : "OTP verification failed.");

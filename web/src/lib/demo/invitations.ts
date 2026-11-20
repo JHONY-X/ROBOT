@@ -37,15 +37,21 @@ export type CandidateRegistrationInput = {
 };
 
 export type EmployerRegistrationInput = {
+  hrFirstName: string;
+  hrMiddleName: string;
+  hrLastName: string;
+  organizationEmail: string;
+  organizationPhone: string;
+  password: string;
+};
+
+export type EmployerProfileInput = {
   organizationName: string;
   organizationType: string;
   city: string;
   subcity: string;
-  hrEmail: string;
   organizationPhone: string;
-  representativeEmail: string;
   representativePhone: string;
-  password: string;
   businessLicenseFileName: string;
   businessLicenseDataUrl: string;
 };
@@ -262,47 +268,44 @@ export function registerDemoCandidate(
 export function registerDemoEmployer(
   input: EmployerRegistrationInput
 ): { success: boolean; message: string } {
-  const email = normalizeDemoEmail(input.representativeEmail);
-  const hrEmail = normalizeDemoEmail(input.hrEmail);
+  const email = normalizeDemoEmail(input.organizationEmail);
   if (
-    !input.organizationName.trim() ||
-    !input.organizationType.trim() ||
-    !input.city.trim() ||
-    !input.subcity.trim() ||
+    input.hrFirstName.trim().length > 100 ||
+    input.hrMiddleName.trim().length > 100 ||
+    input.hrLastName.trim().length > 100 ||
+    email.length > 254 ||
+    !input.hrFirstName.trim() ||
+    !input.hrMiddleName.trim() ||
+    !input.hrLastName.trim() ||
     !input.organizationPhone.trim() ||
-    !input.representativePhone.trim() ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hrEmail)
+    input.organizationPhone.trim().length > 30 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   ) {
-    return { success: false, message: "Complete all organization and contact details with valid emails." };
+    return { success: false, message: "Enter the HR contact's full name, a valid organization email, and organization phone." };
   }
   if (!isValidPassword(input.password)) {
     return { success: false, message: "Use a password between 12 and 128 characters." };
   }
-  if (
-    !input.businessLicenseFileName ||
-    input.businessLicenseDataUrl.length > 2_800_000 ||
-    !/^data:(application\/pdf|image\/(png|jpeg|webp));base64,/.test(input.businessLicenseDataUrl)
-  ) {
-    return { success: false, message: "Attach a PDF or image business-license file up to 2 MB." };
-  }
-  if (accountExists(email) || accountExists(hrEmail)) {
-    return { success: false, message: "One of these email addresses is already registered." };
+  if (accountExists(email)) {
+    return { success: false, message: "This organization email is already registered." };
   }
 
   const salt = randomBytes(PASSWORD_SALT_BYTES);
   const account: DemoEmployerAccount = {
     id: newDemoId(),
-    organizationName: input.organizationName.trim(),
-    organizationType: input.organizationType.trim(),
-    city: input.city.trim(),
-    subcity: input.subcity.trim(),
-    hrEmail,
+    hrFirstName: input.hrFirstName.trim(),
+    hrMiddleName: input.hrMiddleName.trim(),
+    hrLastName: input.hrLastName.trim(),
+    organizationName: "",
+    organizationType: "",
+    city: "",
+    subcity: "",
+    hrEmail: email,
     organizationPhone: input.organizationPhone.trim(),
     representativeEmail: email,
-    representativePhone: input.representativePhone.trim(),
-    businessLicenseFileName: input.businessLicenseFileName,
-    businessLicenseDataUrl: input.businessLicenseDataUrl,
+    representativePhone: "",
+    businessLicenseFileName: "",
+    businessLicenseDataUrl: "",
     passwordSalt: salt.toString("hex"),
     passwordHash: passwordDigest(input.password, salt).toString("hex"),
     emailVerified: false,
@@ -311,7 +314,71 @@ export function registerDemoEmployer(
   };
   demoStore.employers.set(account.id, account);
   issueDemoOtp("employer", account);
-  return { success: true, message: "Organization registered. Enter the verification code shown in the demo admin inbox." };
+  return { success: true, message: "Organization account created. Verify the organization email before completing its profile." };
+}
+
+export function getDemoEmployerProfile(sessionId: string) {
+  const session = demoStore.sessions.get(sessionId);
+  const employer = session?.role === "employer" ? demoStore.employers.get(session.accountId) : undefined;
+  if (!employer) return undefined;
+  return {
+    hrFirstName: employer.hrFirstName,
+    hrMiddleName: employer.hrMiddleName,
+    hrLastName: employer.hrLastName,
+    organizationEmail: employer.representativeEmail,
+    emailVerified: employer.emailVerified,
+    organizationName: employer.organizationName,
+    organizationType: employer.organizationType,
+    city: employer.city,
+    subcity: employer.subcity,
+    organizationPhone: employer.organizationPhone,
+    representativePhone: employer.representativePhone,
+    businessLicenseFileName: employer.businessLicenseFileName,
+    status: employer.status,
+  };
+}
+
+export function updateDemoEmployerProfile(
+  sessionId: string,
+  input: EmployerProfileInput
+): { success: boolean; message: string } {
+  const session = demoStore.sessions.get(sessionId);
+  const employer = session?.role === "employer" ? demoStore.employers.get(session.accountId) : undefined;
+  if (!employer || !employer.emailVerified) {
+    return { success: false, message: "Verify the organization email before updating the profile." };
+  }
+  if (
+    !input.organizationName.trim() ||
+    !input.organizationType.trim() ||
+    !input.city.trim() ||
+    !input.subcity.trim() ||
+    !input.organizationPhone.trim() ||
+    !input.representativePhone.trim()
+  ) {
+    return { success: false, message: "Complete all organization profile fields." };
+  }
+  if (
+    (input.businessLicenseFileName && !input.businessLicenseDataUrl) ||
+    (!input.businessLicenseFileName && !employer.businessLicenseFileName) ||
+    (input.businessLicenseDataUrl &&
+      (input.businessLicenseDataUrl.length > 2_800_000 ||
+        !/^data:(application\/pdf|image\/(png|jpeg|webp));base64,/.test(input.businessLicenseDataUrl)))
+  ) {
+    return { success: false, message: "Attach a PDF or image business license up to 2 MB." };
+  }
+
+  employer.organizationName = input.organizationName.trim();
+  employer.organizationType = input.organizationType.trim();
+  employer.city = input.city.trim();
+  employer.subcity = input.subcity.trim();
+  employer.organizationPhone = input.organizationPhone.trim();
+  employer.representativePhone = input.representativePhone.trim();
+  if (input.businessLicenseFileName && input.businessLicenseDataUrl) {
+    employer.businessLicenseFileName = input.businessLicenseFileName;
+    employer.businessLicenseDataUrl = input.businessLicenseDataUrl;
+  }
+  if (employer.status === "Profile incomplete") employer.status = "Pending payment";
+  return { success: true, message: "Organization profile saved." };
 }
 
 function issueDemoOtp(role: "candidate" | "employer", account: DemoCandidateAccount | DemoEmployerAccount) {
@@ -374,13 +441,13 @@ export function verifyDemoEmailOtp(
   otp.consumedAt = new Date().toISOString();
   result.account.emailVerified = true;
   result.account.status =
-    role === "candidate" ? "Pending admin approval" : "Pending payment";
+    role === "candidate" ? "Pending admin approval" : "Profile incomplete";
   return {
     success: true,
     message:
       role === "candidate"
         ? "Email verified. Your candidate account is waiting for admin approval."
-        : "Email verified. Sign in to choose a subscription package and submit payment proof.",
+        : "Organization email verified. Sign in to complete the organization profile.",
   };
 }
 
@@ -404,7 +471,8 @@ export function authenticateDemoAccount(email: string, password: string) {
 
   const name = result.role === "candidate"
     ? `${(account as DemoCandidateAccount).firstName} ${(account as DemoCandidateAccount).secondName}`
-    : (account as DemoEmployerAccount).organizationName;
+    : ((account as DemoEmployerAccount).organizationName ||
+      `${(account as DemoEmployerAccount).hrFirstName} ${(account as DemoEmployerAccount).hrMiddleName} ${(account as DemoEmployerAccount).hrLastName}`);
 
   return {
     sessionId: session.id,
@@ -438,7 +506,8 @@ export function getDemoSessionIdentity(sessionId: string) {
     ? {
         id: account.id,
         role: "employer" as const,
-        name: account.organizationName,
+        name: account.organizationName ||
+          `${account.hrFirstName} ${account.hrMiddleName} ${account.hrLastName}`,
         email: account.representativeEmail,
         phone: account.representativePhone,
         status: account.status,
@@ -477,7 +546,7 @@ export function listDemoReviewQueue(): DemoReviewQueue {
         status: candidate.status,
       })),
     employers: [...demoStore.employers.values()]
-      .filter((employer) => employer.emailVerified)
+      .filter((employer) => employer.emailVerified && employer.organizationName)
       .map((employer) => ({
         id: employer.id,
         organizationName: employer.organizationName,

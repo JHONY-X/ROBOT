@@ -41,12 +41,21 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/unauthorized", request.url));
   }
 
+  if (
+    guard.requiredRole === "employer" &&
+    access === "profile-incomplete" &&
+    pathname !== "/employer/profile"
+  ) {
+    return NextResponse.redirect(new URL("/employer/profile", request.url));
+  }
+
   if (guard.requiredRole === "candidate" && access !== "active" && pathname !== "/candidate/status") {
     return NextResponse.redirect(new URL("/candidate/status", request.url));
   }
   if (
     guard.requiredRole === "employer" &&
     access !== "active" &&
+    pathname !== "/employer/profile" &&
     pathname !== "/employer/activation" &&
     pathname !== "/employer/packages" &&
     pathname !== "/employer/payment" &&
@@ -56,7 +65,12 @@ export function proxy(request: NextRequest) {
       access === "payment-pending" ? "/employer/pending" : "/employer/activation";
     return NextResponse.redirect(new URL(destination, request.url));
   }
-  if (guard.requiredRole === "employer" && access === "payment-pending" && pathname !== "/employer/pending") {
+  if (
+    guard.requiredRole === "employer" &&
+    access === "payment-pending" &&
+    pathname !== "/employer/pending" &&
+    pathname !== "/employer/profile"
+  ) {
     return NextResponse.redirect(new URL("/employer/pending", request.url));
   }
   if (

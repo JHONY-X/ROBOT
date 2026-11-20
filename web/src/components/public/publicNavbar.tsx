@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 
 const links = [
   { href: "/#how-it-works", label: "How it works" },
-  { href: "/candidate/career", label: "Career development" },
+  { href: "/candidate/feedback", label: "Candidate feedback" },
   { href: "/login?role=candidate", label: "For professionals" },
   { href: "/employer/register", label: "For employers" },
 ];
@@ -26,9 +26,6 @@ export function PublicNavbar() {
             <span className="truncate text-xs font-bold tracking-wide sm:text-sm">
               ROHOBOT <span className="font-medium text-white/85">· Home-Based Healthcare &amp; Job Creation</span>
             </span>
-          </Link>
-          <Link href="/login?role=employer" className="hidden shrink-0 rounded-full border border-white/40 px-3 py-1 text-xs font-semibold transition-colors hover:bg-white/15 sm:inline-flex">
-            Employer portal
           </Link>
         </div>
       </div>

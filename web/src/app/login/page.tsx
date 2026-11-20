@@ -22,7 +22,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [isSigningIn, setIsSigningIn] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [roleOverride, setRoleOverride] = useState<"candidate" | "employer" | null>(null);
   const requestedRole = searchParams.get("role");

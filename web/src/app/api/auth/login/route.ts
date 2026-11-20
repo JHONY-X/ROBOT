@@ -41,6 +41,8 @@ export async function POST(request: NextRequest) {
         : "pending-review"
       : account.status === "Approved"
         ? "active"
+        : account.status === "Profile incomplete"
+          ? "profile-incomplete"
         : account.status === "Payment submitted"
           ? "payment-pending"
           : "needs-payment";
@@ -54,6 +56,8 @@ export async function POST(request: NextRequest) {
         ? accessState === "active" ? "/candidate" : "/candidate/status"
         : accessState === "active"
           ? "/employer"
+          : accessState === "profile-incomplete"
+            ? "/employer/profile"
           : accessState === "payment-pending"
             ? "/employer/pending"
             : "/employer/packages",

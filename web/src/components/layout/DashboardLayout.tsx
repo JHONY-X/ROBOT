@@ -42,7 +42,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
       { name: "My Profile", href: "/candidate/profile", icon: User },
       { name: "Interviews", href: "/candidate/interviews", icon: Calendar },
       { name: "My Placements", href: "/candidate/placements", icon: Briefcase },
-      { name: "Career Development", href: "/candidate/career", icon: GraduationCap },
+      { name: "Feedback", href: "/candidate/feedback", icon: MessageSquareText },
     ],
     employer: [
       { name: "Overview", href: "/employer", icon: LayoutDashboard },
