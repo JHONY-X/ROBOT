@@ -1,5 +1,9 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Live Web App
+
+Visit the deployed application at [https://robot-web-chi.vercel.app/](https://robot-web-chi.vercel.app/).
+
 ## Getting Started
 
 First, run the development server:
