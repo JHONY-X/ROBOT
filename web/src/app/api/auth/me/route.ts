@@ -6,7 +6,17 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   if (!isLocalDemoRequest(request)) {
-    return NextResponse.json({ error: "Demo sessions are unavailable." }, { status: 404 });
+    // ----- Real session path -----
+    const sessionId = request.cookies.get('rohobot_session')?.value;
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Sign-in is required.' }, { status: 401 });
+    }
+    const { getSessionAccount } = await import('@/lib/auth/real');
+    const account = getSessionAccount(sessionId);
+    if (!account) {
+      return NextResponse.json({ error: 'Session not found or expired.' }, { status: 401 });
+    }
+    return NextResponse.json({ account });
   }
 
   const sessionId = request.cookies.get("rohobot_session")?.value;

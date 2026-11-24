@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 
 export function isLocalDemoRequest(_request: NextRequest): boolean {
-  return true;
+  return process.env.NEXT_PUBLIC_ENV === "demo";
 }
 
 export function isLocalDemoAdmin(request: NextRequest): boolean {
