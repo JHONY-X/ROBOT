@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
-    (requestedRole !== "candidate" && requestedRole !== "employer")
+    (requestedRole !== "candidate" && requestedRole !== "employer" && requestedRole !== "admin")
   ) {
     return NextResponse.json({ error: "Enter your registered email and password." }, { status: 400 });
   }
@@ -35,32 +35,36 @@ export async function POST(request: NextRequest) {
   }
 
   const accessState =
-    account.role === "candidate"
-      ? account.status === "Approved"
-        ? "active"
-        : "pending-review"
-      : account.status === "Approved"
-        ? "active"
-        : account.status === "Profile incomplete"
-          ? "profile-incomplete"
-        : account.status === "Payment submitted"
-          ? "payment-pending"
-          : "needs-payment";
+    account.role === "admin"
+      ? "active"
+      : account.role === "candidate"
+        ? account.status === "Approved"
+          ? "active"
+          : "pending-review"
+        : account.status === "Approved"
+          ? "active"
+          : account.status === "Profile incomplete"
+            ? "profile-incomplete"
+            : account.status === "Payment submitted"
+              ? "payment-pending"
+              : "needs-payment";
   const response = NextResponse.json({
     success: true,
     role: account.role,
     name: account.name,
     status: account.status,
     destination:
-      account.role === "candidate"
-        ? accessState === "active" ? "/candidate" : "/candidate/status"
-        : accessState === "active"
-          ? "/employer"
-          : accessState === "profile-incomplete"
-            ? "/employer/profile"
-          : accessState === "payment-pending"
-            ? "/employer/pending"
-            : "/employer/packages",
+      account.role === "admin"
+        ? "/admin"
+        : account.role === "candidate"
+          ? accessState === "active" ? "/candidate" : "/candidate/status"
+          : accessState === "active"
+            ? "/employer"
+            : accessState === "profile-incomplete"
+              ? "/employer/profile"
+              : accessState === "payment-pending"
+                ? "/employer/pending"
+                : "/employer/packages",
   });
   const cookieOptions = {
     httpOnly: true,

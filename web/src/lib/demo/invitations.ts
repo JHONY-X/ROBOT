@@ -262,6 +262,7 @@ export function registerDemoCandidate(
   };
   demoStore.candidates.set(email, account);
   invitation.usedAt = account.createdAt;
+  issueDemoOtp("candidate", account);
   return { success: true, message: "Registration saved. Verify your email to continue." };
 }
 
@@ -452,6 +453,25 @@ export function verifyDemoEmailOtp(
 }
 
 export function authenticateDemoAccount(email: string, password: string) {
+  const normalizedEmail = normalizeDemoEmail(email);
+  const defaultAdminEmail = normalizeDemoEmail(process.env.ADMIN_EMAIL || "admin@rohobot.com");
+  const defaultAdminPass = process.env.ADMIN_PASSWORD || "AdminPass123!";
+
+  if (normalizedEmail === defaultAdminEmail && password === defaultAdminPass) {
+    const session: DemoSession = {
+      id: newDemoId(),
+      role: "admin",
+      accountId: "admin-root",
+    };
+    demoStore.sessions.set(session.id, session);
+    return {
+      sessionId: session.id,
+      role: "admin" as const,
+      name: "Rohobot Administrator",
+      status: "Approved",
+    };
+  }
+
   const result = accountByEmail(email);
   if (!result || !result.account.emailVerified || password.length > 128) return null;
 
@@ -489,6 +509,16 @@ export function getDemoSession(sessionId: string) {
 export function getDemoSessionIdentity(sessionId: string) {
   const session = demoStore.sessions.get(sessionId);
   if (!session) return undefined;
+  if (session.role === "admin") {
+    return {
+      id: "admin-root",
+      role: "admin" as const,
+      name: "Rohobot Administrator",
+      email: process.env.ADMIN_EMAIL || "admin@rohobot.com",
+      phone: "",
+      status: "Approved",
+    };
+  }
   if (session.role === "candidate") {
     const account = [...demoStore.candidates.values()].find((item) => item.id === session.accountId);
     if (!account) return undefined;

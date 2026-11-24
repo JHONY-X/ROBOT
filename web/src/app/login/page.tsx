@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { HeartPulse, ShieldCheck, ClipboardCheck, KeyRound } from "lucide-react";
+import { HeartPulse, ShieldCheck, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
-const DEMO_ACCOUNTS = [
-  { role: "admin", label: "Admin", icon: ClipboardCheck, destination: "/admin" },
-] as const;
+type SignInRole = "candidate" | "employer" | "admin";
 
 export default function LoginPage() {
   return (
@@ -24,10 +22,12 @@ function LoginForm() {
   const [errorMessage, setErrorMessage] = useState("");
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
-  const [roleOverride, setRoleOverride] = useState<"candidate" | "employer" | null>(null);
+  const [roleOverride, setRoleOverride] = useState<SignInRole | null>(null);
   const requestedRole = searchParams.get("role");
-  const selectedRole = roleOverride ?? (
-    requestedRole === "employer" || requestedRole === "candidate" ? requestedRole : "candidate"
+  const selectedRole: SignInRole = roleOverride ?? (
+    requestedRole === "employer" || requestedRole === "candidate" || requestedRole === "admin"
+      ? requestedRole
+      : "candidate"
   );
   const verifiedNotice = searchParams.get("verified") === "1"
     ? "Your email is verified. Sign in with the email and password you registered with."
@@ -53,39 +53,6 @@ function LoginForm() {
     } catch (error) {
       console.error("Account sign-in failed.", error);
       setErrorMessage(error instanceof Error ? error.message : "Sign-in failed. Please try again.");
-      setIsSigningIn(null);
-    }
-  };
-
-  const handleDemoSignIn = async (role: (typeof DEMO_ACCOUNTS)[number]["role"]) => {
-    setIsSigningIn(role);
-    setErrorMessage("");
-
-    try {
-      const response = await fetch("/api/auth/demo-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      });
-
-      if (!response.ok) {
-        const result = (await response.json()) as { error?: string };
-        throw new Error(result.error ?? "Demo sign-in failed. Please try again.");
-      }
-
-      const account = DEMO_ACCOUNTS.find((demoAccount) => demoAccount.role === role);
-      if (!account) throw new Error("Choose a valid demo role.");
-
-      const requestedPath = new URLSearchParams(window.location.search).get("redirect");
-      const destination =
-        requestedPath === account.destination ||
-        requestedPath?.startsWith(`${account.destination}/`)
-          ? requestedPath
-          : account.destination;
-      window.location.assign(destination);
-    } catch (error) {
-      console.error("Demo sign-in failed.", error);
-      setErrorMessage(error instanceof Error ? error.message : "Demo sign-in failed. Please try again.");
       setIsSigningIn(null);
     }
   };
@@ -116,7 +83,7 @@ function LoginForm() {
                 Where compassionate care meets opportunity.
               </h1>
               <p className="mt-4 leading-relaxed text-primary-100">
-                Access healthcare career, professional development, and employer connection demos.
+                Access healthcare career opportunities, professional development, and verified employer connections.
               </p>
             </div>
             <p className="text-sm text-primary-100/80">Rohobot Home-Based Health Care Service PLC</p>
@@ -129,93 +96,69 @@ function LoginForm() {
               Candidates must register from an official invitation. Employers register directly.
             </p>
 
-            {process.env.NODE_ENV !== "production" ? (
-              <>
-              <div className="mt-6 grid grid-cols-2 rounded-xl bg-slate-100 p-1" role="group" aria-label="Account type">
-                {(["candidate", "employer"] as const).map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    aria-pressed={selectedRole === role}
-                    onClick={() => { setRoleOverride(role); setErrorMessage(""); }}
-                    className={`rounded-lg px-3 py-2 text-sm font-semibold capitalize ${selectedRole === role ? "bg-white text-primary-800 shadow-sm" : "text-slate-600"}`}
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
-              <form onSubmit={handleAccountSignIn} className="mt-4 space-y-4">
-                {verifiedNotice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{verifiedNotice}</p>}
-                <label className="block text-sm font-medium text-slate-700">
-                  Email address
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900"
-                    placeholder={selectedRole === "candidate" ? "Email used during invitation registration" : "Authorized representative email"}
-                  />
-                </label>
-                <label className="block text-sm font-medium text-slate-700">
-                  Password
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900"
-                    placeholder="Your password"
-                  />
-                </label>
-                <Button type="submit" className="w-full" isLoading={isSigningIn === selectedRole}>
-                  <KeyRound className="mr-2 h-4 w-4" />
-                  Sign in as {selectedRole}
-                </Button>
-              </form>
-              {selectedRole === "employer" && (
-                <p className="mt-4 text-sm text-slate-600">
-                  New employer? <Link href="/employer/register" className="font-semibold text-primary-700 hover:underline">Register your organization</Link>
-                </p>
-              )}
-              {selectedRole === "candidate" && (
-                <p className="mt-4 text-sm text-slate-600">Need an account? Ask a Rohobot official for your candidate invitation link.</p>
-              )}
-              </>
-            ) : (
-              <div role="status" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                Production sign-in is not connected yet. Account workflows are available only in the local development demo.
-              </div>
+            <div className="mt-6 grid grid-cols-3 rounded-xl bg-slate-100 p-1" role="group" aria-label="Account type">
+              {(["candidate", "employer", "admin"] as const).map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  aria-pressed={selectedRole === role}
+                  onClick={() => { setRoleOverride(role); setErrorMessage(""); }}
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold capitalize transition-colors ${selectedRole === role ? "bg-white text-primary-800 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+                >
+                  {role}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleAccountSignIn} className="mt-5 space-y-4">
+              {verifiedNotice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{verifiedNotice}</p>}
+              <label className="block text-sm font-medium text-slate-700">
+                Email address
+                <input
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 outline-none"
+                  placeholder={
+                    selectedRole === "candidate"
+                      ? "Email used during invitation registration"
+                      : selectedRole === "employer"
+                        ? "Authorized representative email"
+                        : "admin@rohobot.com"
+                  }
+                />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Password
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 outline-none"
+                  placeholder="Your password"
+                />
+              </label>
+              <Button type="submit" className="w-full" isLoading={isSigningIn === selectedRole}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Sign in as {selectedRole}
+              </Button>
+            </form>
+
+            {errorMessage && (
+              <p role="alert" className="mt-4 text-sm text-red-700">{errorMessage}</p>
             )}
 
-            {process.env.NODE_ENV !== "production" && (
-              <>
-                <div role="status" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                  Local demo only. Candidate and employer accounts are stored in server memory and reset when the server restarts.
-                </div>
-                <h3 className="mt-7 text-sm font-semibold text-slate-800">Official testing shortcuts</h3>
-                <div className="mt-3 space-y-3">
-                  {DEMO_ACCOUNTS.map(({ role, label, icon: Icon }) => (
-                    <Button
-                      key={role}
-                      type="button"
-                      variant={role === "admin" ? "outline" : "primary"}
-                      className="w-full justify-center gap-2"
-                      disabled={isSigningIn !== null}
-                      isLoading={isSigningIn === role}
-                      onClick={() => handleDemoSignIn(role)}
-                    >
-                      {!isSigningIn && <Icon className="h-4 w-4" />}
-                      Continue as demo {label}
-                    </Button>
-                  ))}
-                </div>
-                {errorMessage && (
-                  <p role="alert" className="mt-4 text-sm text-red-700">{errorMessage}</p>
-                )}
-              </>
+            {selectedRole === "employer" && (
+              <p className="mt-4 text-sm text-slate-600">
+                New employer? <Link href="/employer/register" className="font-semibold text-primary-700 hover:underline">Register your organization</Link>
+              </p>
+            )}
+            {selectedRole === "candidate" && (
+              <p className="mt-4 text-sm text-slate-600">Need an account? Ask a Rohobot official for your candidate invitation link.</p>
             )}
 
             <Link href="/" className="mt-6 inline-flex text-sm font-semibold text-primary-700 hover:text-primary-900">

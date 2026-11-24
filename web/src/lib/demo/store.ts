@@ -97,7 +97,7 @@ export interface DemoOtp {
 
 export interface DemoSession {
   id: string;
-  role: "candidate" | "employer";
+  role: "candidate" | "employer" | "admin";
   accountId: string;
 }
 

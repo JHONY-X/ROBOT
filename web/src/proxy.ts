@@ -16,21 +16,13 @@ export function proxy(request: NextRequest) {
   const guard = ROUTE_GUARDS.find((g) => pathname.startsWith(g.prefix));
   if (!guard) return NextResponse.next();
 
-  // 2. In production, read the session from secure HttpOnly cookies (NOT localStorage)
-  // The backend sets this cookie after login. The frontend can read the role from it.
+  // 2. Read the session from secure HttpOnly cookies
   const sessionCookie = request.cookies.get("rohobot_session")?.value;
-  const authRole = request.cookies.get("rohobot_role")?.value; // Set by backend on login
+  const authRole = request.cookies.get("rohobot_role")?.value;
   const access = request.cookies.get("rohobot_access")?.value;
-  const isDemoSession = sessionCookie?.startsWith("demo-") ?? false;
-  const isLocalHost = ["localhost", "127.0.0.1", "[::1]"].includes(
-    request.nextUrl.hostname
-  );
 
   // 3. If no session, redirect to login
-  if (
-    !sessionCookie ||
-    (isDemoSession && (process.env.NODE_ENV === "production" || !isLocalHost))
-  ) {
+  if (!sessionCookie) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
