@@ -82,6 +82,9 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
       : NextResponse.json(data, { status: response.status })
     : NextResponse.json({ error: backendErrorMessage(data, "The backend request failed."), details: data }, { status: response.status });
 
+  const retryAfter = response.headers.get("retry-after");
+  if (retryAfter) result.headers.set("Retry-After", retryAfter);
+
   if (endpoint === "refresh/" && response.ok && data && typeof data === "object" && typeof (data as { access?: unknown }).access === "string") {
     result.cookies.set("rohobot_access_token", (data as { access: string }).access, cookieOptions(request));
     if (typeof (data as { refresh?: unknown }).refresh === "string") {

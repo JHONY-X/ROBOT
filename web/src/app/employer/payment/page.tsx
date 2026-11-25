@@ -6,85 +6,60 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CreditCard, ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SignOutButton } from "@/components/layout/SignOutButton";
-
-const PAYMENT_METHODS = [
-  "Telebirr",
-  "M-Pesa",
-  "Commercial Bank of Ethiopia (CBE)",
-  "Dashen Bank",
-  "Other Ethiopian bank",
-] as const;
-interface EmployerPaymentAccount {
-  organizationName: string;
-  packageName?: string;
-}
-interface SubscriptionPackage { name: string; amount: number; annualTraineeCapacity: number | null }
+import { subscriptionService, SubscriptionApiError, type PaymentAccount, type SubscriptionPlan } from "@/lib/api/services/subscription";
 
 export default function EmployerPaymentPage() {
   const router = useRouter();
-  const [account, setAccount] = useState<EmployerPaymentAccount | null>(null);
-  const [method, setMethod] = useState<(typeof PAYMENT_METHODS)[number]>(PAYMENT_METHODS[0]);
-  const [transactionId, setTransactionId] = useState("");
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [accounts, setAccounts] = useState<PaymentAccount[]>([]);
+  const [planId, setPlanId] = useState<number | null>(null);
+  const [accountId, setAccountId] = useState<number | null>(null);
+  const [transactionReference, setTransactionReference] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
-  const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      fetch("/api/demo/employer/activation", { cache: "no-store" }),
-      fetch("/api/demo/subscriptions", { cache: "no-store" }),
-    ])
-      .then(async ([accountResponse, packageResponse]) => {
-        const result = (await accountResponse.json()) as { account?: EmployerPaymentAccount; error?: string };
-        const packageResult = (await packageResponse.json()) as { packages?: SubscriptionPackage[]; error?: string };
-        if (!accountResponse.ok || !packageResponse.ok || !result.account) throw new Error(result.error ?? packageResult.error ?? "Could not load employer account.");
-        if (active) {
-          if (!result.account.packageName) {
-            router.replace("/employer/packages");
-            return;
-          }
-          setAccount(result.account);
-          setPackages(packageResult.packages ?? []);
-        }
+    const queryPlanId = Number(new URLSearchParams(window.location.search).get("plan_id"));
+    Promise.all([subscriptionService.listPlans(), subscriptionService.listPaymentAccounts()])
+      .then(([availablePlans, availableAccounts]) => {
+        if (!active) return;
+        setPlans(availablePlans);
+        setAccounts(availableAccounts);
+        const selected = availablePlans.find((plan) => plan.id === queryPlanId) ?? availablePlans[0];
+        setPlanId(selected?.id ?? null);
+        setAccountId(availableAccounts[0]?.id ?? null);
       })
-      .catch((error: unknown) => {
-        if (active) {
-          console.error("Could not load employer payment details.", error);
-          setErrorMessage(error instanceof Error ? error.message : "Could not load employer account.");
-        }
-      })
+      .catch((error: unknown) => { if (active) setErrorMessage(error instanceof Error ? error.message : "Could not load payment details."); })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
-  }, [router]);
+  }, []);
+
+  const selectedPlan = plans.find((plan) => plan.id === planId);
+  const selectedAccount = accounts.find((account) => account.id === accountId);
 
   const submitPayment = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!account?.packageName || !/^https?:\/\//i.test(receiptUrl.trim())) {
-      setErrorMessage("Provide a valid public receipt link to continue.");
+    if (!selectedPlan || !selectedAccount) {
+      setErrorMessage("Choose an available plan and payment account.");
       return;
     }
     setIsSubmitting(true);
     setErrorMessage("");
     try {
-      const response = await fetch("/api/demo/employer/payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          packageName: account.packageName,
-          method,
-          transactionId,
-          receiptUrl: receiptUrl.trim(),
-        }),
+      await subscriptionService.submitPayment({
+        plan_id: selectedPlan.id,
+        payment_account: selectedAccount.id,
+        payment_method: selectedAccount.account_type === "telebirr" ? "telebirr" : "bank_transfer",
+        transaction_reference: transactionReference.trim(),
+        receipt_url: receiptUrl.trim(),
       });
-      const result = (await response.json()) as { success?: boolean; message?: string; error?: string };
-      if (!response.ok || !result.success) throw new Error(result.error ?? result.message ?? "Could not submit payment.");
-      router.push("/employer/pending");
+      router.replace("/employer/pending");
     } catch (error) {
-      console.error("Could not submit employer payment proof.", error);
-      setErrorMessage(error instanceof Error ? error.message : "Could not submit payment.");
+      console.error("Could not submit subscription payment.", error);
+      setErrorMessage(error instanceof SubscriptionApiError ? error.message : error instanceof Error ? error.message : "Could not submit payment.");
       setIsSubmitting(false);
     }
   };
@@ -92,50 +67,45 @@ export default function EmployerPaymentPage() {
   return (
     <main className="min-h-screen bg-[var(--color-background)] px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-3xl space-y-6">
-        <header>
-          <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Employer subscription</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">Submit payment</h1>
-          {account && <p className="mt-2 text-sm text-slate-600">{account.organizationName}</p>}
-        </header>
-        {isLoading ? <p className="py-6 text-sm text-slate-600">Loading payment details...</p> : account?.packageName && (
+        <header><p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Employer subscription</p><h1 className="mt-1 text-2xl font-bold text-slate-900">Submit payment</h1></header>
+        {errorMessage && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{errorMessage}</p>}
+        {isLoading ? <p role="status" className="py-6 text-sm text-slate-600">Loading plans and payment accounts...</p> : !plans.length || !accounts.length ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Payment cannot be submitted because no active plan or payment account is available. Contact an administrator.</p>
+        ) : (
           <form onSubmit={submitPayment} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <section className="rounded-xl bg-primary-50 p-4">
-              <p className="text-sm text-primary-800">Selected package</p>
-              <p className="mt-1 text-xl font-bold text-primary-950">
-                {account.packageName} · {(packages.find((pkg) => pkg.name === account.packageName)?.amount ?? 0).toLocaleString()} ETB
-                {packages.find((pkg) => pkg.name === account.packageName)?.annualTraineeCapacity === null ? " / trainee / year" : " / year"}
-              </p>
-              <Link href="/employer/packages" className="mt-2 inline-flex text-sm font-semibold text-primary-800 hover:underline">Change package</Link>
-            </section>
-            <section className="space-y-4">
-              <h2 className="flex items-center gap-2 font-semibold text-slate-900"><CreditCard className="h-5 w-5 text-primary-700" /> Choose a payment method</h2>
-              <label className="block text-sm font-medium text-slate-700">
-                Payment method
-                <select required value={method} onChange={(event) => setMethod(event.target.value as (typeof PAYMENT_METHODS)[number])} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5">
-                  {PAYMENT_METHODS.map((item) => <option key={item} value={item}>{item}</option>)}
+              <label className="block text-sm font-medium text-primary-900">Subscription plan
+                <select required value={planId ?? ""} onChange={(event) => setPlanId(Number(event.target.value))} className="mt-1.5 w-full rounded-xl border border-primary-200 bg-white px-3 py-2.5">
+                  {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {Number(plan.price).toLocaleString()} ETB / {plan.duration_days} days</option>)}
                 </select>
               </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Transaction ID
-                <input required maxLength={120} value={transactionId} onChange={(event) => setTransactionId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+              {selectedPlan && <p className="mt-3 text-sm text-primary-800">{selectedPlan.description}</p>}
+              <Link href="/employer/packages" className="mt-2 inline-flex text-sm font-semibold text-primary-800 hover:underline">View all plan details</Link>
+            </section>
+            <section className="space-y-4">
+              <h2 className="flex items-center gap-2 font-semibold text-slate-900"><CreditCard className="h-5 w-5 text-primary-700" /> Payment account</h2>
+              <label className="block text-sm font-medium text-slate-700">Send payment to
+                <select required value={accountId ?? ""} onChange={(event) => setAccountId(Number(event.target.value))} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5">
+                  {accounts.map((account) => <option key={account.id} value={account.id}>{account.provider_name} ({account.account_type}) · {account.account_identifier}</option>)}
+                </select>
+              </label>
+              {selectedAccount && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm"><p><strong>Account holder:</strong> {selectedAccount.account_holder_name}</p>{selectedAccount.instructions && <p className="mt-2 whitespace-pre-wrap">{selectedAccount.instructions}</p>}</div>}
+              <label className="block text-sm font-medium text-slate-700">Transaction reference
+                <input required maxLength={255} value={transactionReference} onChange={(event) => setTransactionReference(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
               </label>
             </section>
             <section className="space-y-4">
-              <h2 className="flex items-center gap-2 font-semibold text-slate-900"><ReceiptText className="h-5 w-5 text-primary-700" /> Payment receipt link</h2>
-              <label className="block text-sm font-medium text-slate-700">
-                Receipt URL
-                <input required type="url" placeholder="https://..." value={receiptUrl} onChange={(event) => setReceiptUrl(event.target.value)} className="mt-1.5 block w-full rounded-xl border border-slate-300 px-3 py-2.5" />
-                <span className="mt-1 block text-xs text-slate-500">Provide a shareable payment receipt link, not an uploaded screenshot or PDF.</span>
+              <h2 className="flex items-center gap-2 font-semibold text-slate-900"><ReceiptText className="h-5 w-5 text-primary-700" /> Receipt</h2>
+              <label className="block text-sm font-medium text-slate-700">Public receipt URL
+                <input required type="url" maxLength={1000} placeholder="https://..." value={receiptUrl} onChange={(event) => setReceiptUrl(event.target.value)} className="mt-1.5 block w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                <span className="mt-1 block text-xs text-slate-500">The backend accepts a URL; it does not accept receipt file uploads.</span>
               </label>
             </section>
-            {errorMessage && <p role="alert" className="text-sm text-red-700">{errorMessage}</p>}
-            <Button type="submit" className="w-full" isLoading={isSubmitting} disabled={isSubmitting}>Submit payment for admin approval</Button>
+            {selectedPlan && <p className="text-sm font-semibold text-slate-800">Amount due: {Number(selectedPlan.price).toLocaleString()} ETB</p>}
+            <Button type="submit" className="w-full" isLoading={isSubmitting} disabled={isSubmitting || !selectedPlan || !selectedAccount}>Submit payment for admin review</Button>
           </form>
         )}
-        <div className="flex items-center justify-between">
-          <Link href="/employer/packages" className="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:underline"><ArrowLeft className="h-4 w-4" /> Packages</Link>
-          <SignOutButton />
-        </div>
+        <div className="flex items-center justify-between"><Link href="/employer/packages" className="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:underline"><ArrowLeft className="h-4 w-4" /> Plans</Link><SignOutButton /></div>
       </div>
     </main>
   );

@@ -1,108 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
-import { CheckCircle2, ShieldCheck, CreditCard } from "lucide-react";
+import { CreditCard, FileText, RefreshCw } from "lucide-react";
+import { subscriptionService, type PaymentTransaction, type Subscription } from "@/lib/api/services/subscription";
 
 export default function EmployerSubscriptionPage() {
-  const router = useRouter();
-  const [subscription, setSubscription] = useState<{ startsAt: string; endsAt: string; traineesUsed: number } | undefined>();
-  const [packageName, setPackageName] = useState("No active package");
-  const [capacity, setCapacity] = useState<number | null>(null);
-  const [dynamicPackages, setDynamicPackages] = useState<{ name: string; amount: number; annualTraineeCapacity: number | null; discountPercent: number; costPerTrainee: number }[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [payments, setPayments] = useState<PaymentTransaction[]>([]);
+  const [selectedDetails, setSelectedDetails] = useState<Subscription | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/demo/employer/activation", { cache: "no-store" }),
-      fetch("/api/demo/subscriptions", { cache: "no-store" }),
-    ]).then(async ([accountResponse, packageResponse]) => {
-      const accountResult = await accountResponse.json();
-      const packageResult = await packageResponse.json();
-      setDynamicPackages(packageResult.packages ?? []);
-      const account = accountResult.account;
-      if (account?.packageName) setPackageName(account.packageName);
-      setSubscription(account?.subscription);
-      setCapacity(packageResult.packages?.find((pkg: { name: string }) => pkg.name === account?.packageName)?.annualTraineeCapacity ?? null);
-    }).catch((error) => console.error("Could not load subscription status.", error));
+  const fetchData = useCallback(async () => {
+    try {
+      const [rows, transactions] = await Promise.all([subscriptionService.currentSubscriptions(), subscriptionService.listPayments()]);
+      setSubscriptions(rows);
+      setPayments(transactions);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not load subscription history.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // This function simulates the redirect to the payment gateway and the webhook return
-  const handleSubscribe = () => {
-    router.push("/employer/packages");
+  const reload = () => { setLoading(true); setErrorMessage(""); void fetchData(); };
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([subscriptionService.currentSubscriptions(), subscriptionService.listPayments()])
+      .then(([rows, transactions]) => {
+        if (!active) return;
+        setSubscriptions(rows);
+        setPayments(transactions);
+      })
+      .catch((error: unknown) => { if (active) setErrorMessage(error instanceof Error ? error.message : "Could not load subscription history."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const showDetails = async (id: number) => {
+    setDetailsLoading(true);
+    setErrorMessage("");
+    try { setSelectedDetails(await subscriptionService.getSubscription(id)); }
+    catch (error) { setErrorMessage(error instanceof Error ? error.message : "Could not load subscription details."); }
+    finally { setDetailsLoading(false); }
   };
+
+  const currentSubscription = subscriptions.find((item) => item.status === "active") ?? subscriptions[0];
 
   return (
     <DashboardLayout role="employer">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-900">Subscription & Billing</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage your recruitment package and view transaction history.</p>
-        </div>
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold text-slate-900">Subscription & billing</h1><p className="mt-1 text-sm text-slate-600">Review your subscription status and submitted payments.</p></div><Button type="button" variant="outline" onClick={reload} isLoading={loading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button></header>
+        {errorMessage && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{errorMessage}</p>}
+        {loading ? <p role="status" className="py-8 text-sm text-slate-600">Loading subscription data...</p> : (
+          <>
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-start gap-4"><span className="rounded-xl bg-primary-50 p-3 text-primary-700"><FileText className="h-6 w-6" /></span><div><h2 className="font-semibold text-slate-900">{currentSubscription ? currentSubscription.plan_name : "No subscription yet"}</h2><p className="mt-1 text-sm capitalize text-slate-600">{currentSubscription ? `Status: ${currentSubscription.status}` : "Choose a plan and submit payment to start a subscription."}</p>{currentSubscription && <p className="mt-2 text-sm text-slate-600">Price at purchase: {Number(currentSubscription.price_snapshot).toLocaleString()} · {currentSubscription.duration_days_snapshot} days</p>}</div></div>
+              {!currentSubscription || currentSubscription.status === "rejected" || currentSubscription.status === "expired" ? <Link href="/employer/packages" className="mt-4 inline-flex text-sm font-semibold text-primary-700 hover:underline">Browse subscription plans</Link> : null}
+            </section>
 
-        {/* Current Status Banner */}
-        <div className={`${subscription ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-200"} border rounded-xl p-4 flex items-start gap-4`}>
-          <ShieldCheck className="w-6 h-6 text-emerald-600 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-emerald-900">Active Subscription: {packageName}</h3>
-            <p className="text-sm text-emerald-700 mt-1">
-              {subscription
-                ? `Valid ${new Date(subscription.startsAt).toLocaleDateString()} – ${new Date(subscription.endsAt).toLocaleDateString()}. ${capacity === null ? "Unlimited" : `${Math.max(0, capacity - subscription.traineesUsed)} of ${capacity}`} trainees remaining.`
-                : "Choose a package and submit your payment receipt for approval."}
-            </p>
-          </div>
-        </div>
+            {subscriptions.length > 0 && <section className="space-y-3"><h2 className="text-lg font-semibold text-slate-900">Subscriptions</h2><div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="px-4 py-3">Plan</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Start</th><th className="px-4 py-3">End</th><th className="px-4 py-3">Details</th></tr></thead><tbody className="divide-y divide-slate-100">{subscriptions.map((item) => <tr key={item.id}><td className="px-4 py-3 capitalize font-medium">{item.plan_name}</td><td className="px-4 py-3 capitalize">{item.status}</td><td className="px-4 py-3">{item.start_date ? new Date(item.start_date).toLocaleDateString() : "—"}</td><td className="px-4 py-3">{item.end_date ? new Date(item.end_date).toLocaleDateString() : "—"}</td><td className="px-4 py-3"><Button type="button" size="sm" variant="outline" onClick={() => showDetails(item.id)} isLoading={detailsLoading && selectedDetails?.id === item.id}>View</Button></td></tr>)}</tbody></table></div></section>}
 
-        {/* Packages Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {dynamicPackages.map((pkg) => (
-            <div
-              key={pkg.name}
-              className="relative bg-white border border-slate-200 rounded-2xl p-6 flex flex-col shadow-sm hover:border-primary-200 transition-all"
-            >
-              {pkg.name === "Gold" && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-amber-400 to-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                  Most Popular
-                </div>
-              )}
-              
-              <div className="mb-6">
-                <h3 className="text-lg font-bold text-slate-900">{pkg.name}</h3>
-                <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold text-slate-900">{pkg.amount.toLocaleString()}</span>
-                  <span className="text-sm text-slate-500">
-                    ETB {pkg.annualTraineeCapacity === null ? "/ trainee / year" : "/ year"}
-                  </span>
-                </div>
-              </div>
+            {selectedDetails && <section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="font-semibold text-slate-900">{selectedDetails.plan_name} history</h2>{selectedDetails.history.length ? <ul className="mt-3 space-y-2 text-sm text-slate-600">{selectedDetails.history.map((entry) => <li key={entry.id}>{new Date(entry.created_at).toLocaleString()} · {entry.action.replaceAll("_", " ")}{entry.description ? ` — ${entry.description}` : ""}</li>)}</ul> : <p className="mt-2 text-sm text-slate-500">No subscription history entries.</p>}</section>}
 
-              <ul className="space-y-3 mb-8 flex-1">
-                {[
-                  pkg.annualTraineeCapacity === null ? "Unlimited annual training capacity" : `${pkg.annualTraineeCapacity} trainees per year`,
-                  `${pkg.discountPercent}% discount on hospital share`,
-                  `${pkg.costPerTrainee.toLocaleString()} ETB per trainee`,
-                ].map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              <Button
-                variant={pkg.name === "Gold" ? "primary" : "outline"}
-                className="w-full"
-                onClick={handleSubscribe}
-              >
-                <CreditCard className="w-4 h-4 mr-2" />
-                Select {pkg.name}
-              </Button>
-            </div>
-          ))}
-        </div>
-
+            <section className="space-y-3"><h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900"><CreditCard className="h-5 w-5" />Payment history</h2>{payments.length ? <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="px-4 py-3">Reference</th><th className="px-4 py-3">Plan</th><th className="px-4 py-3">Method</th><th className="px-4 py-3">Amount</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Receipt</th></tr></thead><tbody className="divide-y divide-slate-100">{payments.map((payment) => <tr key={payment.id}><td className="px-4 py-3 font-mono text-xs">{payment.transaction_reference}</td><td className="px-4 py-3">{subscriptions.find((item) => item.id === payment.subscription)?.plan_name ?? `Subscription #${payment.subscription}`}</td><td className="px-4 py-3">{payment.payment_method.replaceAll("_", " ")}</td><td className="px-4 py-3">{Number(payment.amount).toLocaleString()}</td><td className="px-4 py-3 capitalize">{payment.status}</td><td className="px-4 py-3"><a href={payment.receipt_url} target="_blank" rel="noreferrer" className="font-semibold text-primary-700 hover:underline">Open</a></td></tr>)}</tbody></table></div> : <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">No payments have been submitted yet.</p>}</section>
+          </>
+        )}
       </div>
     </DashboardLayout>
   );

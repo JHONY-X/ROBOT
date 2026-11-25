@@ -5,133 +5,61 @@ import { useRouter } from "next/navigation";
 import { Building2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SignOutButton } from "@/components/layout/SignOutButton";
-
-interface SubscriptionPackage {
-  name: string;
-  amount: number;
-  annualTraineeCapacity: number | null;
-  discountPercent: number;
-  costPerTrainee: number;
-  description: string;
-}
-
-interface EmployerAccount {
-  organizationName: string;
-  status: string;
-  packageName?: string;
-  paymentStatus?: string;
-  reviewNote?: string;
-}
+import { subscriptionService, type SubscriptionPlan } from "@/lib/api/services/subscription";
 
 export default function EmployerPackagesPage() {
   const router = useRouter();
-  const [account, setAccount] = useState<EmployerAccount | null>(null);
-  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSelecting, setIsSelecting] = useState(false);
+  const [isContinuing, setIsContinuing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      fetch("/api/demo/employer/activation", { cache: "no-store" }),
-      fetch("/api/demo/subscriptions", { cache: "no-store" }),
-    ])
-      .then(async ([accountResponse, packageResponse]) => {
-        const result = (await accountResponse.json()) as { account?: EmployerAccount; error?: string };
-        const packageResult = (await packageResponse.json()) as { packages?: SubscriptionPackage[]; error?: string };
-        if (!accountResponse.ok || !packageResponse.ok) throw new Error(result.error ?? packageResult.error ?? "Could not load subscriptions.");
-        if (!result.account || !packageResult.packages) throw new Error(result.error ?? "Could not load employer account.");
-        if (active) {
-          setAccount(result.account);
-          setPackages(packageResult.packages);
-          setSelectedPackage(result.account.packageName ?? null);
-        }
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          console.error("Could not load employer package options.", error);
-          setErrorMessage(error instanceof Error ? error.message : "Could not load employer account.");
-        }
-      })
+    subscriptionService.listPlans()
+      .then((data) => { if (active) setPlans(data); })
+      .catch((error: unknown) => { if (active) setErrorMessage(error instanceof Error ? error.message : "Could not load plans."); })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, []);
 
-  const continueToPayment = async () => {
-    if (!selectedPackage) {
-      setErrorMessage("Choose a package to continue.");
+  const continueToPayment = () => {
+    if (!selectedPlanId) {
+      setErrorMessage("Choose a plan to continue.");
       return;
     }
-    setIsSelecting(true);
+    setIsContinuing(true);
     setErrorMessage("");
-    try {
-      const response = await fetch("/api/demo/employer/activation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageName: selectedPackage }),
-      });
-      const result = (await response.json()) as { success?: boolean; message?: string; error?: string };
-      if (!response.ok || !result.success) throw new Error(result.message ?? result.error ?? "Could not select package.");
-      router.push("/employer/payment");
-    } catch (error) {
-      console.error("Could not select employer package.", error);
-      setErrorMessage(error instanceof Error ? error.message : "Could not select package.");
-      setIsSelecting(false);
-    }
+    router.push(`/employer/payment?plan_id=${selectedPlanId}`);
   };
 
   return (
     <main className="min-h-screen bg-[var(--color-background)] px-4 py-10 sm:px-6">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         <header className="flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100 text-primary-700"><Building2 className="h-6 w-6" /></span>
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Employer subscription</p>
-            <h1 className="text-2xl font-bold text-slate-900">Choose a package</h1>
-            {account && <p className="text-sm text-slate-600">{account.organizationName}</p>}
-          </div>
+          <div><p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Employer subscription</p><h1 className="text-2xl font-bold text-slate-900">Choose a plan</h1></div>
         </header>
-
-        <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Choose one package to continue to the payment form. Your employer features stay locked until an admin approves your payment submission.
-        </div>
-        {account?.paymentStatus === "Rejected" && (
-          <p role="status" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            Your previous payment proof was not approved{account.reviewNote ? `: ${account.reviewNote}` : "."} Select a package and submit new proof.
-          </p>
-        )}
+        <p className="rounded-xl border border-primary-100 bg-primary-50 p-4 text-sm text-primary-900">Select a plan, then submit your bank transfer or Telebirr reference and public receipt link. Your subscription remains pending until an administrator reviews the payment.</p>
         {errorMessage && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{errorMessage}</p>}
-
-        {isLoading ? <p className="py-8 text-sm text-slate-600">Loading packages...</p> : (
+        {isLoading ? <p role="status" className="py-8 text-sm text-slate-600">Loading available plans...</p> : plans.length ? (
           <>
-            <section className="grid gap-4 md:grid-cols-3" aria-label="Available packages">
-              {packages.map((item) => (
-                <label key={item.name} className={`cursor-pointer rounded-2xl border bg-white p-5 shadow-sm transition ${selectedPackage === item.name ? "border-primary-600 ring-2 ring-primary-100" : "border-slate-200"}`}>
-                  <input
-                    type="radio"
-                    name="package"
-                    value={item.name}
-                    checked={selectedPackage === item.name}
-                    onChange={() => setSelectedPackage(item.name)}
-                    className="sr-only"
-                  />
-                  <div className="flex items-start justify-between">
-                    <span className="text-lg font-bold text-slate-900">{item.name}</span>
-                    {selectedPackage === item.name && <CheckCircle2 className="h-5 w-5 text-primary-700" aria-label="Selected" />}
-                  </div>
-                  <p className="mt-2 text-2xl font-bold text-primary-800">{item.amount.toLocaleString()} ETB {item.annualTraineeCapacity === null ? "/ trainee / year" : "/ year"}</p>
-                  <p className="mt-2 text-sm text-slate-600">{item.annualTraineeCapacity === null ? "Unlimited annual training capacity" : `${item.annualTraineeCapacity} trainees per year`}</p>
-                  <p className="mt-1 text-xs text-slate-500">{item.discountPercent}% discount · {item.costPerTrainee.toLocaleString()} ETB per trainee</p>
+            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Available subscription plans">
+              {plans.map((plan) => (
+                <label key={plan.id} className={`cursor-pointer rounded-2xl border bg-white p-5 shadow-sm transition ${selectedPlanId === plan.id ? "border-primary-600 ring-2 ring-primary-100" : "border-slate-200"}`}>
+                  <input type="radio" name="plan" value={plan.id} checked={selectedPlanId === plan.id} onChange={() => { setSelectedPlanId(plan.id); setErrorMessage(""); }} className="sr-only" />
+                  <div className="flex items-start justify-between"><span className="text-lg font-bold capitalize text-slate-900">{plan.name}</span>{selectedPlanId === plan.id && <CheckCircle2 className="h-5 w-5 text-primary-700" aria-label="Selected" />}</div>
+                  <p className="mt-2 text-2xl font-bold text-primary-800">{Number(plan.price).toLocaleString()} ETB</p>
+                  <p className="mt-1 text-sm text-slate-600">{plan.duration_days} days</p>
+                  <p className="mt-4 text-sm text-slate-700">{plan.description}</p>
+                  <ul className="mt-4 space-y-1 text-sm text-slate-600"><li>{plan.hiring_limit} hiring slots</li><li>{plan.interview_request_limit} interview requests</li></ul>
                 </label>
               ))}
             </section>
-            <Button type="button" className="w-full sm:w-auto" disabled={!selectedPackage || isSelecting} isLoading={isSelecting} onClick={continueToPayment}>
-              Continue to payment
-            </Button>
+            <Button type="button" className="w-full sm:w-auto" disabled={!selectedPlanId || isContinuing} isLoading={isContinuing} onClick={continueToPayment}>Continue to payment</Button>
           </>
-        )}
+        ) : <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">There are no active subscription plans available right now.</p>}
         <div className="flex justify-end"><SignOutButton /></div>
       </div>
     </main>

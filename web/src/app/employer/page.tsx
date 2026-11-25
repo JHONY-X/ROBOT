@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Bookmark,
@@ -12,13 +15,21 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/Card";
 import { employerService } from "@/lib/api/services/employer";
 import { interviewService } from "@/lib/api/services/interview";
-import { organizationService } from "@/lib/api/services/organization";
+import { organizationApi, type Organization } from "@/lib/api/services/organization";
 
-export default async function EmployerDashboardPage() {
-  const [organization, interviews, candidates] = await Promise.all([
-    organizationService.getOrganizationProfile(),
-    interviewService.getEmployerInterviews(),
-    employerService.searchCandidates({
+export default function EmployerDashboardPage() {
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [interviews, setInterviews] = useState<Awaited<ReturnType<typeof interviewService.getEmployerInterviews>>>([]);
+  const [savedCount, setSavedCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      organizationApi.getMine(),
+      interviewService.getEmployerInterviews(),
+      employerService.searchCandidates({
       query: "",
       category: "",
       location: "",
@@ -26,9 +37,19 @@ export default async function EmployerDashboardPage() {
       qualification: "",
       availability: "",
       workArrangement: "",
-    }),
-  ]);
-  const savedCount = candidates.filter((candidate) => candidate.isSaved).length;
+      }),
+    ])
+      .then(([currentOrganization, interviewRows, candidates]) => {
+        if (!active) return;
+        setOrganization(currentOrganization);
+        setInterviews(interviewRows);
+        setSavedCount(candidates.filter((candidate) => candidate.isSaved).length);
+      })
+      .catch((error: unknown) => { if (active) setErrorMessage(error instanceof Error ? error.message : "Could not load employer workspace."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
   const pendingInterviews = interviews.filter(
     (interview) =>
       interview.status === "Pending" ||
@@ -41,6 +62,9 @@ export default async function EmployerDashboardPage() {
     { label: "Awaiting response", value: pendingInterviews, icon: ShieldCheck, href: "/employer/interviews", tone: "bg-amber-50 text-amber-700" },
   ];
 
+  if (loading) return <DashboardLayout role="employer"><p role="status" className="p-6 text-sm text-slate-600">Loading employer workspace...</p></DashboardLayout>;
+  if (!organization) return <DashboardLayout role="employer"><div className="space-y-4"><p role="alert" className="text-sm text-red-700">{errorMessage || "Create your organization profile to continue."}</p><Link href="/employer/profile" className="font-semibold text-primary-700 hover:underline">Open organization profile</Link></div></DashboardLayout>;
+
   return (
     <DashboardLayout role="employer">
       <div className="space-y-7">
@@ -48,7 +72,7 @@ export default async function EmployerDashboardPage() {
           <div>
             <p className="text-sm font-semibold text-primary-700">EMPLOYER WORKSPACE</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
-              Welcome, {organization.name}
+              Welcome, {organization.organization_name}
             </h1>
             <p className="mt-2 text-sm text-slate-600">
               Find qualified healthcare professionals and keep recruitment moving.
@@ -63,9 +87,9 @@ export default async function EmployerDashboardPage() {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-primary-100 bg-primary-50 px-5 py-4">
           <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary-900">
             <Building2 className="h-4 w-4" />
-            {organization.status}
+            {organization.verification_status}
           </span>
-          <span className="text-sm text-primary-800">{organization.type} · {organization.location}</span>
+          <span className="text-sm text-primary-800">{organization.organization_type.replaceAll("_", " ")} · {organization.city}, {organization.region}</span>
           <Link href="/employer/profile" className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-primary-800 hover:text-primary-900">
             Organization profile <ArrowRight className="h-4 w-4" />
           </Link>
@@ -95,7 +119,7 @@ export default async function EmployerDashboardPage() {
                 <p className="mt-1 text-sm text-slate-600">Continue with a common task.</p>
               </div>
               <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-800">
-                {organization.subscriptionTier || "No plan selected"}
+                {organization.verification_status.replaceAll("_", " ")}
               </span>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -113,7 +137,7 @@ export default async function EmployerDashboardPage() {
             </p>
             <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Organization status</p>
-              <p className="mt-1 font-semibold text-slate-900">{organization.status}</p>
+              <p className="mt-1 font-semibold capitalize text-slate-900">{organization.verification_status}</p>
             </div>
             <Link href="/employer/profile" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-900">
               Review organization details <ArrowRight className="h-4 w-4" />

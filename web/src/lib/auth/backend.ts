@@ -50,6 +50,7 @@ export function backendErrorMessage(body: unknown, fallback: string): string {
 export type JwtClaims = {
   role?: string;
   email_address?: string;
+  full_name?: string;
   user_id?: number | string;
 };
 

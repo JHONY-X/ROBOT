@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { appRoleFromJwt, readJwtClaims } from "@/lib/auth/backend";
 import { isLocalDemoRequest } from "@/lib/demo/request-guards";
 
 export const runtime = "nodejs";
@@ -10,12 +11,20 @@ export async function GET(request: NextRequest) {
     if (!sessionId) {
       return NextResponse.json({ error: 'Sign-in is required.' }, { status: 401 });
     }
-    const { getSessionAccount } = await import('@/lib/auth/real');
-    const account = getSessionAccount(sessionId);
-    if (!account) {
-      return NextResponse.json({ error: 'Session not found or expired.' }, { status: 401 });
+    const accessToken = request.cookies.get("rohobot_access_token")?.value;
+    const claims = accessToken ? readJwtClaims(accessToken) : null;
+    const role = accessToken ? appRoleFromJwt(accessToken) : null;
+    if (!claims || !role || claims.user_id === undefined) {
+      return NextResponse.json({ error: "Session not found or expired." }, { status: 401 });
     }
-    return NextResponse.json({ account });
+    return NextResponse.json({
+      account: {
+        id: claims.user_id,
+        role,
+        name: claims.full_name ?? claims.email_address ?? "Account",
+        email: claims.email_address ?? "",
+      },
+    });
   }
 
   const sessionId = request.cookies.get("rohobot_session")?.value;

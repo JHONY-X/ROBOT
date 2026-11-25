@@ -58,6 +58,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
       { name: "Candidate Invitations", href: "/admin/invitations", icon: UserPlus },
       { name: "Workflow Reviews", href: "/admin/reviews", icon: ShieldCheck },
       { name: "Verifications", href: "/admin/verifications", icon: ShieldCheck },
+      { name: "Organization Review", href: "/admin/organizations", icon: Building2 },
       { name: "Decline Monitoring", href: "/admin/decline-monitoring", icon: AlertTriangle },
       { name: "Confidential Feedback", href: "/admin/feedback", icon: MessageSquareText },
       { name: "Finance & Payments", href: "/admin/finance", icon: CreditCard },
