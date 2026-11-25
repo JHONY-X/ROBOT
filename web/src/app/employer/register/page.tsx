@@ -5,11 +5,15 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, HeartPulse } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { FieldErrors, FormErrors } from "@/components/forms/ApiErrors";
+import { normalizeApiErrors, type NormalizedApiErrors } from "@/lib/api/errors";
+import { userService, UserApiError } from "@/lib/api/services/user";
 
 export default function EmployerRegistrationPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<NormalizedApiErrors>({ fieldErrors: {}, formErrors: [] });
   const [hrFirstName, setHrFirstName] = useState("");
   const [hrMiddleName, setHrMiddleName] = useState("");
   const [hrLastName, setHrLastName] = useState("");
@@ -21,6 +25,7 @@ export default function EmployerRegistrationPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage("");
+    setFieldErrors({ fieldErrors: {}, formErrors: [] });
     if (password !== confirmPassword) {
       setErrorMessage("The passwords do not match.");
       return;
@@ -28,28 +33,21 @@ export default function EmployerRegistrationPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/demo/employers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hrFirstName,
-          hrMiddleName,
-          hrLastName,
-          organizationEmail: organizationEmail.trim().toLowerCase(),
-          organizationPhone: organizationPhone.trim(),
-          password,
-          confirmPassword,
-        }),
+      await userService.register({
+        first_name: hrFirstName.trim(),
+        middle_name: hrMiddleName.trim(),
+        last_name: hrLastName.trim(),
+        email_address: organizationEmail.trim().toLowerCase(),
+        phone_number: organizationPhone.trim(),
+        password,
+        password2: confirmPassword,
       });
-      const result = (await response.json()) as { success?: boolean; message?: string; error?: string };
-      if (!response.ok || !result.success) {
-        throw new Error(result.message ?? result.error ?? "Could not register the organization.");
-      }
 
       router.push(`/verify-email?role=employer&email=${encodeURIComponent(organizationEmail.trim().toLowerCase())}`);
     } catch (error) {
-      console.error("Employer demo registration failed.", error);
+      console.error("Employer registration failed.", error);
       setErrorMessage(error instanceof Error ? error.message : "Could not register the organization.");
+      setFieldErrors(error instanceof UserApiError ? error.errors : normalizeApiErrors({ non_field_errors: [error instanceof Error ? error.message : "Could not register the organization."] }));
       setIsSubmitting(false);
     }
   };
@@ -80,16 +78,19 @@ export default function EmployerRegistrationPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium text-slate-700">
                 HR First name
-                <input required type="text" maxLength={100} value={hrFirstName} onChange={(event) => setHrFirstName(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                <input required type="text" maxLength={20} value={hrFirstName} onChange={(event) => setHrFirstName(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                <FieldErrors errors={fieldErrors} field="first_name" />
               </label>
 
               <label className="text-sm font-medium text-slate-700">
                 HR Middle name
-                <input required type="text" maxLength={100} value={hrMiddleName} onChange={(event) => setHrMiddleName(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                <input required type="text" maxLength={20} value={hrMiddleName} onChange={(event) => setHrMiddleName(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                <FieldErrors errors={fieldErrors} field="middle_name" />
               </label>
               <label className="text-sm font-medium text-slate-700">
                 HR Last name
-                <input required type="text" maxLength={100} value={hrLastName} onChange={(event) => setHrLastName(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                <input required type="text" maxLength={20} value={hrLastName} onChange={(event) => setHrLastName(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                <FieldErrors errors={fieldErrors} field="last_name" />
               </label>
             </div>
           </section>
@@ -99,24 +100,29 @@ export default function EmployerRegistrationPage() {
             <label className="block text-sm font-medium text-slate-700">
               Organization email (used to sign in and verify the account)
               <input required type="email" maxLength={254} value={organizationEmail} onChange={(event) => setOrganizationEmail(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" autoComplete="email" />
+              <FieldErrors errors={fieldErrors} field="email_address" />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Organization Phone
-              <input required type="tel" maxLength={30} value={organizationPhone} onChange={(event) => setOrganizationPhone(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" autoComplete="tel" />
+              <input required type="tel" maxLength={10} value={organizationPhone} onChange={(event) => setOrganizationPhone(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" autoComplete="tel" />
+              <FieldErrors errors={fieldErrors} field="phone_number" />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium text-slate-700">
                 Password
                 <input required type="password" minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                <FieldErrors errors={fieldErrors} field="password" />
               </label>
               <label className="text-sm font-medium text-slate-700">
                 Confirm password
                 <input required type="password" minLength={12} maxLength={128} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                <FieldErrors errors={fieldErrors} field="password2" />
               </label>
             </div>
           </section>
 
-          {errorMessage && <p role="alert" className="text-sm text-red-700">{errorMessage}</p>}
+          <FormErrors errors={fieldErrors} />
+          {errorMessage && fieldErrors.formErrors.length === 0 && <p role="alert" className="text-sm text-red-700">{errorMessage}</p>}
           <Button type="submit" className="w-full" isLoading={isSubmitting} disabled={isSubmitting}>
             Create account and verify organization email
           </Button>

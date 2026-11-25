@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateDemoAccount } from "@/lib/demo/invitations";
-import { isLocalDemoRequest } from "@/lib/demo/request-guards";
+import { appRoleFromJwt, backendErrorMessage, backendRequest, readBackendBody } from "@/lib/auth/backend";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  if (!isLocalDemoRequest(request)) {
-    // ----- Real authentication path -----
-    // Parse request body
+  const demoLoginEnabled = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true";
+  if (!demoLoginEnabled) {
     let email: unknown;
     let password: unknown;
     let requestedRole: unknown;
@@ -24,20 +22,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Enter your registered email and password." }, { status: 400 });
     }
 
-    // Simple in‑memory user lookup
-    const { realAccounts, createSession } = await import("@/lib/auth/real");
-    const account = realAccounts.find((a) => a.email === email && a.password === password && a.role === requestedRole);
-    if (!account) {
-      return NextResponse.json({ error: "Email/password is incorrect." }, { status: 401 });
+    const backendResponse = await backendRequest("/user/login/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email_address: email, password }),
+    });
+    const backendBody = await readBackendBody(backendResponse);
+    if (!backendResponse.ok || !backendBody || typeof backendBody !== "object") {
+      return NextResponse.json(
+        { error: backendErrorMessage(backendBody, "Email/password is incorrect.") },
+        { status: backendResponse.status || 401 },
+      );
     }
-    const sessionId = createSession(account);
-    const accessState = "active"; // simplistic for demo
+
+    const { access, refresh } = backendBody as { access?: unknown; refresh?: unknown };
+    if (typeof access !== "string" || typeof refresh !== "string") {
+      return NextResponse.json({ error: "The backend returned an invalid login response." }, { status: 502 });
+    }
+
+    const role = appRoleFromJwt(access);
+    if (!role || role !== requestedRole) {
+      return NextResponse.json({ error: "The account role does not match the selected sign-in form." }, { status: 403 });
+    }
+
     const response = NextResponse.json({
       success: true,
-      role: account.role,
-      name: account.name,
-      status: account.status,
-      destination: account.role === "admin" ? "/admin" : account.role === "candidate" ? "/candidate" : "/employer",
+      role,
+      destination: role === "admin" ? "/admin" : role === "candidate" ? "/candidate" : "/employer",
     });
     const cookieOptions = {
       httpOnly: true,
@@ -46,9 +57,11 @@ export async function POST(request: NextRequest) {
       path: "/",
       maxAge: 60 * 60 * 4,
     };
-    response.cookies.set("rohobot_session", sessionId, cookieOptions);
-    response.cookies.set("rohobot_role", account.role, cookieOptions);
-    response.cookies.set("rohobot_access", accessState, cookieOptions);
+    response.cookies.set("rohobot_session", "authenticated", cookieOptions);
+    response.cookies.set("rohobot_role", role, cookieOptions);
+    response.cookies.set("rohobot_access", "active", cookieOptions);
+    response.cookies.set("rohobot_access_token", access, cookieOptions);
+    response.cookies.set("rohobot_refresh_token", refresh, cookieOptions);
     return response;
   }
 
@@ -69,6 +82,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Enter your registered email and password." }, { status: 400 });
   }
 
+  const { authenticateDemoAccount } = await import("@/lib/demo/invitations");
   const account = authenticateDemoAccount(email, password);
   if (!account || account.role !== requestedRole) {
     return NextResponse.json(

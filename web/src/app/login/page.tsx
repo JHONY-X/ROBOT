@@ -5,6 +5,8 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { HeartPulse, ShieldCheck, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { FieldErrors, FormErrors } from "@/components/forms/ApiErrors";
+import { normalizeApiErrors, type NormalizedApiErrors } from "@/lib/api/errors";
 
 type SignInRole = "candidate" | "employer" | "admin";
 
@@ -20,6 +22,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [isSigningIn, setIsSigningIn] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<NormalizedApiErrors>({ fieldErrors: {}, formErrors: [] });
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [roleOverride, setRoleOverride] = useState<SignInRole | null>(null);
@@ -37,6 +40,8 @@ function LoginForm() {
     event.preventDefault();
     setIsSigningIn(selectedRole);
     setErrorMessage("");
+    setFieldErrors({ fieldErrors: {}, formErrors: [] });
+    let responseHadErrors = false;
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -44,8 +49,12 @@ function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, role: selectedRole }),
       });
-      const result = (await response.json()) as { error?: string; role?: string; destination?: string };
-      if (!response.ok) throw new Error(result.error ?? "Sign-in failed. Please try again.");
+      const result = (await response.json()) as { error?: string; details?: unknown; role?: string; destination?: string };
+      if (!response.ok) {
+        responseHadErrors = true;
+        setFieldErrors(normalizeApiErrors(result.details ?? result));
+        throw new Error(result.error ?? "Sign-in failed. Please try again.");
+      }
       if (result.role !== selectedRole || !result.destination) {
         throw new Error("The account role does not match the selected sign-in form.");
       }
@@ -53,6 +62,7 @@ function LoginForm() {
     } catch (error) {
       console.error("Account sign-in failed.", error);
       setErrorMessage(error instanceof Error ? error.message : "Sign-in failed. Please try again.");
+      if (!responseHadErrors) setFieldErrors(normalizeApiErrors({ non_field_errors: [error instanceof Error ? error.message : "Sign-in failed. Please try again."] }));
       setIsSigningIn(null);
     }
   };
@@ -129,6 +139,7 @@ function LoginForm() {
                         : "admin@rohobot.com"
                   }
                 />
+                <FieldErrors errors={fieldErrors} field="email_address" />
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 Password
@@ -141,14 +152,18 @@ function LoginForm() {
                   className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 outline-none"
                   placeholder="Your password"
                 />
+                <FieldErrors errors={fieldErrors} field="password" />
               </label>
+              <FormErrors errors={fieldErrors} />
               <Button type="submit" className="w-full" isLoading={isSigningIn === selectedRole}>
                 <KeyRound className="mr-2 h-4 w-4" />
                 Sign in as {selectedRole}
               </Button>
             </form>
 
-            {errorMessage && (
+            <Link href="/forgot-password" className="mt-4 inline-flex text-sm font-semibold text-primary-700 hover:underline">Forgot password?</Link>
+
+            {errorMessage && fieldErrors.formErrors.length === 0 && Object.keys(fieldErrors.fieldErrors).length === 0 && (
               <p role="alert" className="mt-4 text-sm text-red-700">{errorMessage}</p>
             )}
 

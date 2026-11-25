@@ -2,41 +2,56 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HeartPulse, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { FieldErrors, FormErrors } from "@/components/forms/ApiErrors";
+import { normalizeApiErrors, type NormalizedApiErrors } from "@/lib/api/errors";
+import { userService, UserApiError } from "@/lib/api/services/user";
+
+const EMPTY_ERRORS: NormalizedApiErrors = { fieldErrors: {}, formErrors: [] };
 
 export function VerifyEmailClient({
   role,
   email,
+  phone: initialPhone,
 }: {
   role: "candidate" | "employer";
   email: string;
+  phone?: string;
 }) {
   const router = useRouter();
   const [code, setCode] = useState("");
+  const [phone, setPhone] = useState(initialPhone ?? "");
   const [notice, setNotice] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isRequesting, setIsRequesting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [fieldErrors, setFieldErrors] = useState(EMPTY_ERRORS);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => setCooldown((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
 
   const requestOtp = async () => {
+    if (isRequesting || cooldown > 0) return;
     setIsRequesting(true);
     setNotice("");
     setErrorMessage("");
     try {
-      const response = await fetch("/api/demo/otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "request", role, email }),
-      });
-      const result = (await response.json()) as { message?: string; error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Could not create an OTP.");
-      setNotice(result.message ?? "OTP requested.");
+      await userService.resendOtp(email);
+      setCooldown(60);
+      setNotice("The server accepted the request, but its current implementation does not generate or deliver an OTP. Verification cannot complete until that backend behavior is fixed.");
     } catch (error) {
       console.error("Could not request verification OTP.", error);
       setErrorMessage(error instanceof Error ? error.message : "Could not create an OTP.");
+      const retry = error instanceof UserApiError ? error.retryAfterSeconds : undefined;
+      if (error instanceof UserApiError && error.status === 429) setCooldown(retry ?? 60);
+      setFieldErrors(error instanceof UserApiError ? error.errors : normalizeApiErrors({ non_field_errors: [error instanceof Error ? error.message : "Could not create an OTP."] }));
     } finally {
       setIsRequesting(false);
     }
@@ -47,20 +62,16 @@ export function VerifyEmailClient({
     setIsVerifying(true);
     setErrorMessage("");
     setNotice("");
+    setFieldErrors(EMPTY_ERRORS);
     try {
-      const response = await fetch("/api/demo/otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", role, email, code }),
-      });
-      const result = (await response.json()) as { success?: boolean; message?: string; error?: string };
-      if (!response.ok || !result.success) throw new Error(result.message ?? result.error ?? "OTP verification failed.");
+      await userService.verifyEmail(phone, code);
       setIsVerified(true);
-      setNotice(result.message ?? "Email verified.");
+      setNotice("Email verified.");
       router.replace(`/login?role=${role}&verified=1&email=${encodeURIComponent(email)}`);
     } catch (error) {
       console.error("Could not verify account email.", error);
       setErrorMessage(error instanceof Error ? error.message : "OTP verification failed.");
+      setFieldErrors(error instanceof UserApiError ? error.errors : normalizeApiErrors({ non_field_errors: [error instanceof Error ? error.message : "OTP verification failed."] }));
     } finally {
       setIsVerifying(false);
     }
@@ -84,19 +95,26 @@ export function VerifyEmailClient({
           <h1 className="mt-2 text-2xl font-bold text-slate-900">Verify your email address</h1>
           <p className="mt-3 text-sm text-slate-600">Email to verify: <strong>{email || "Not provided"}</strong></p>
           <div role="note" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            This local demo does not send email. Request a code, then ask the admin to share the simulated OTP from Admin → Workflow reviews.
+            The backend currently does not create or deliver verification OTPs during registration or resend. You can submit a code if you already received one, but a new code cannot be obtained until the backend is updated.
           </div>
           {!isVerified ? (
             <>
-              <Button type="button" className="mt-5 w-full" isLoading={isRequesting} disabled={isRequesting || !email} onClick={requestOtp}>
-                Request verification code
+              <Button type="button" className="mt-5 w-full" isLoading={isRequesting} disabled={isRequesting || cooldown > 0 || !email} onClick={requestOtp}>
+                {cooldown > 0 ? `Try again in ${cooldown}s` : "Request verification code"}
               </Button>
+              <FormErrors errors={fieldErrors} />
               <form onSubmit={verifyOtp} className="mt-5 space-y-4">
+                <label className="block text-sm font-medium text-slate-700">
+                  Registered phone number
+                  <input required type="tel" maxLength={10} value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                  <FieldErrors errors={fieldErrors} field="phone" />
+                </label>
                 <label className="block text-sm font-medium text-slate-700">
                   Six-digit OTP
                   <input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 tracking-[0.3em]" />
+                  <FieldErrors errors={fieldErrors} field="code" />
                 </label>
-                <Button type="submit" className="w-full" isLoading={isVerifying} disabled={isVerifying || code.length !== 6}>
+                <Button type="submit" className="w-full" isLoading={isVerifying} disabled={isVerifying || code.length !== 6 || !phone}>
                   Verify email
                 </Button>
               </form>
@@ -107,8 +125,8 @@ export function VerifyEmailClient({
             </Link>
           )}
           {notice && <p role="status" className="mt-4 text-sm text-primary-800">{notice}</p>}
-          {errorMessage && <p role="alert" className="mt-4 text-sm text-red-700">{errorMessage}</p>}
-          <p className="mt-6 text-xs text-slate-500">OTP expires after 10 minutes and is limited to five attempts.</p>
+          {errorMessage && fieldErrors.formErrors.length === 0 && <p role="alert" className="mt-4 text-sm text-red-700">{errorMessage}</p>}
+          <p className="mt-6 text-xs text-slate-500">OTP expires after 5 minutes and is limited to three failed attempts.</p>
         </div>
       </section>
     </main>

@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
+import { AccountSettings } from "@/components/account/AccountSettings";
 import { Building2, FileText } from "lucide-react";
 
 const ORGANIZATION_TYPES = ["Hospital", "Clinic", "Home-Based Care", "Other"] as const;
@@ -186,6 +187,7 @@ export default function EmployerProfilePage() {
             </Button>
           </form>
         )}
+        <AccountSettings />
       </div>
     </DashboardLayout>
   );

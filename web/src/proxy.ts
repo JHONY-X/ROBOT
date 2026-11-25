@@ -8,9 +8,15 @@ const ROUTE_GUARDS = [
   { prefix: "/candidate", requiredRole: "candidate" },
 ];
 
+const PUBLIC_ROUTES = ["/login", "/employer/register", "/verify-email", "/forgot-password", "/reset-password"];
+
+function isPublicRoute(pathname: string) {
+  return PUBLIC_ROUTES.includes(pathname) || pathname === "/invite" || pathname.startsWith("/invite/") || pathname === "/reset-password-confirm" || pathname.startsWith("/reset-password-confirm/");
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (pathname === "/employer/register") return NextResponse.next();
+  if (isPublicRoute(pathname)) return NextResponse.next();
 
   // 1. Find if the current path is protected
   const guard = ROUTE_GUARDS.find((g) => pathname.startsWith(g.prefix));

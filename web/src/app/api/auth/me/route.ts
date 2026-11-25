@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDemoSessionIdentity } from "@/lib/demo/invitations";
 import { isLocalDemoRequest } from "@/lib/demo/request-guards";
 
 export const runtime = "nodejs";
@@ -25,6 +24,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Sign-in is required." }, { status: 401 });
   }
 
+  const { getDemoSessionIdentity } = await import("@/lib/demo/invitations");
   const account = getDemoSessionIdentity(sessionId);
   if (!account || account.role !== role) {
     return NextResponse.json({ error: "Demo session has expired or was lost." }, { status: 401 });
