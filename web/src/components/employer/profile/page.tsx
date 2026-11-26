@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
-import { AccountSettings } from "@/components/account/AccountSettings";
 import { FieldErrors, FormErrors } from "@/components/forms/ApiErrors";
 import { normalizeApiErrors, type NormalizedApiErrors } from "@/lib/api/errors";
 import { organizationApi, OrganizationApiError, type Organization, type OrganizationDocument, type OrganizationDocumentType, type OrganizationType } from "@/lib/api/services/organization";
@@ -265,7 +264,6 @@ export default function EmployerProfilePage() {
           {editingDocument && <form onSubmit={updateDocument} className="space-y-3 rounded-xl border border-slate-200 p-4"><h3 className="font-semibold text-slate-900">Update document</h3><label className="block text-sm font-medium text-slate-700">Document type<select value={editDocumentType} onChange={(event) => setEditDocumentType(event.target.value as OrganizationDocumentType)} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5">{DOCUMENT_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="block text-sm font-medium text-slate-700">Replace file (optional)<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setEditDocumentFile(event.target.files?.[0] ?? null)} className="mt-1.5 block w-full rounded-xl border border-slate-300 p-2" /></label><FormErrors errors={documentErrors} /><div className="flex gap-2"><Button type="submit" size="sm" isLoading={busyDocumentId === editingDocument.id} disabled={busyDocumentId !== null}>Save document</Button><Button type="button" size="sm" variant="outline" onClick={() => setEditingDocument(null)}>Cancel</Button></div></form>}
           <FormErrors errors={documentErrors} />
         </section>}
-        <AccountSettings />
       </div>
     </DashboardLayout>
   );

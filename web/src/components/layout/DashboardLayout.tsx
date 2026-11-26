@@ -51,6 +51,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
       { name: "Search Talent", href: "/employer/search", icon: Search },
       { name: "Saved Talent", href: "/employer/saved", icon: Bookmark },
       { name: "Organization", href: "/employer/profile", icon: Building2 },
+      { name: "Account settings", href: "/employer/settings", icon: Settings },
       { name: "Placements", href: "/employer/placements", icon: Briefcase },
       { name: "Recruitment requests", href: "/employer/applications", icon: Briefcase },
       { name: "Interviews", href: "/employer/interviews", icon: Calendar },
