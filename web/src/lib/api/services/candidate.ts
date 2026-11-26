@@ -1,5 +1,5 @@
 import { backendApiRequest } from "./backend-request";
-import { professionalsService, type ProfessionalProfile } from "./professionals";
+import { professionalsService, type ProfessionalProfile, type ProfessionalProfileInput } from "./professionals";
 
 export type VerificationStatus = "Unverified" | "Pending Review" | "Verified" | "Rejected";
 export type AvailabilityStatus = "Immediate" | "1 Week" | "1 Month" | "Not Available";
@@ -36,9 +36,12 @@ export interface CandidateProfile {
   educationDocument?: File | null;
 }
 
-const displayStatus = (status: ProfessionalProfile["verification_status"]): VerificationStatus => ({
-  pending: "Pending Review", verified: "Verified", rejected: "Rejected",
-}[status] ?? "Unverified");
+const displayStatus = (status: ProfessionalProfile["verification_status"]): VerificationStatus => {
+  if (status === "pending") return "Pending Review";
+  if (status === "verified") return "Verified";
+  if (status === "rejected") return "Rejected";
+  return "Unverified";
+};
 
 const apiAvailability = (status: AvailabilityStatus): ProfessionalProfile["availability_status"] =>
   status === "Not Available" ? "unavailable" : "available";
@@ -49,7 +52,7 @@ const apiEmploymentPreference = (value: CandidateProfile["preferredWorkArrangeme
   return "full_time";
 };
 
-function toApiInput(profile: CandidateProfile) {
+function toApiInput(profile: CandidateProfile): ProfessionalProfileInput {
   const requiredFiles = {
     profile_picture: profile.profilePicture,
     license: profile.licenseFile,
@@ -65,7 +68,7 @@ function toApiInput(profile: CandidateProfile) {
     profile_picture: requiredFiles.profile_picture!,
     date_of_birth: profile.dateOfBirth,
     gender: profile.gender,
-    professional_category: /nurse/i.test(profile.professionalCategory) ? "nurse" : /midwife/i.test(profile.professionalCategory) ? "midwife" : /caregiver/i.test(profile.professionalCategory) ? "caregiver" : "other",
+    professional_category: (/nurse/i.test(profile.professionalCategory) ? "nurse" : /midwife/i.test(profile.professionalCategory) ? "midwife" : /caregiver/i.test(profile.professionalCategory) ? "caregiver" : "other") as ProfessionalProfile["professional_category"],
     professional_summary: profile.professionalSummary,
     skills: profile.skills,
     current_location: profile.currentLocation,
@@ -81,8 +84,9 @@ function toApiInput(profile: CandidateProfile) {
 }
 
 async function toViewProfile(profile: ProfessionalProfile): Promise<CandidateProfile> {
-  let account: { account?: { name?: string; email?: string; phone?: string } } | null = null;
-  try { account = await backendApiRequest<typeof account>("/api/auth/me"); } catch { /* Profile data remains usable without account metadata. */ }
+  type AccountResponse = { account?: { name?: string; email?: string; phone?: string } };
+  let account: AccountResponse | null = null;
+  try { account = await backendApiRequest<AccountResponse>("/api/auth/me"); } catch { /* Profile data remains usable without account metadata. */ }
   const level = profile.qualifications?.find((item) => item.qualification_type === "education");
   const experiences = profile.work_experiences ?? [];
   const availability: AvailabilityStatus = profile.availability_status === "unavailable" ? "Not Available" : "Immediate";

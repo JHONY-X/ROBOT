@@ -16,7 +16,11 @@ export default function CandidateEventsPage() {
     try { setEvents(await eventsService.list()); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load events."); }
   };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void eventsService.list()
+      .then(setEvents)
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load events."));
+  }, []);
 
   const toggleInterest = async (event: EventRecord) => {
     setBusyId(event.id);

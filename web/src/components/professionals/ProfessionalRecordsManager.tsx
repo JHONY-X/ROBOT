@@ -23,7 +23,11 @@ export function ProfessionalRecordsManager() {
     const [qualificationRows, experienceRows] = await Promise.all([professionalsService.qualifications(), professionalsService.experiences()]);
     setQualifications(qualificationRows); setExperiences(experienceRows);
   };
-  useEffect(() => { void load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load professional records.")); }, []);
+  useEffect(() => {
+    void Promise.all([professionalsService.qualifications(), professionalsService.experiences()])
+      .then(([qualificationRows, experienceRows]) => { setQualifications(qualificationRows); setExperiences(experienceRows); })
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load professional records."));
+  }, []);
 
   const saveQualification = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setLoading(true); setError("");

@@ -20,7 +20,13 @@ export default function EmployerApplicationsPage() {
     const [applications, currentUsage, history, rejectionRows] = await Promise.all([recruitmentService.organizationApplications(), recruitmentService.usage(), recruitmentService.usageHistory(), recruitmentService.organizationRejections()]);
     setItems(applications); setUsage(currentUsage); setUsageHistory(history); setRejections(rejectionRows);
   };
-  useEffect(() => { void load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load recruitment data.")); }, []);
+  useEffect(() => {
+    void Promise.all([recruitmentService.organizationApplications(), recruitmentService.usage(), recruitmentService.usageHistory(), recruitmentService.organizationRejections()])
+      .then(([applications, currentUsage, history, rejectionRows]) => {
+        setItems(applications); setUsage(currentUsage); setUsageHistory(history); setRejections(rejectionRows);
+      })
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load recruitment data."));
+  }, []);
 
   const create = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setBusy(true); setError("");

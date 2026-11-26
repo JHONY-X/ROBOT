@@ -17,7 +17,15 @@ export default function AdminFeedbackPage() {
     const rows = await feedbackApi.adminList(); setItems(rows);
     setDrafts(Object.fromEntries(rows.map((item) => [item.id, { status: item.status, admin_response: item.admin_response ?? "" }])));
   };
-  useEffect(() => { void load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load feedback.")).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    void feedbackApi.adminList()
+      .then((rows) => {
+        setItems(rows);
+        setDrafts(Object.fromEntries(rows.map((item) => [item.id, { status: item.status, admin_response: item.admin_response ?? "" }])));
+      })
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load feedback."))
+      .finally(() => setLoading(false));
+  }, []);
   const save = async (id: number) => {
     const draft = drafts[id]; if (!draft) return;
     setBusyId(id); setError("");

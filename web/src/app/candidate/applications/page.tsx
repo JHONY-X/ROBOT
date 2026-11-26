@@ -15,7 +15,11 @@ export default function CandidateApplicationsPage() {
     const [applications, rejectionRows] = await Promise.all([recruitmentService.professionalApplications(), recruitmentService.professionalRejections()]);
     setItems(applications); setRejections(rejectionRows);
   };
-  useEffect(() => { void load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load requests.")); }, []);
+  useEffect(() => {
+    void Promise.all([recruitmentService.professionalApplications(), recruitmentService.professionalRejections()])
+      .then(([applications, rejectionRows]) => { setItems(applications); setRejections(rejectionRows); })
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load requests."));
+  }, []);
   const respond = async (id: number, action: "accepted" | "declined") => {
     setBusyId(id); setError("");
     try { await recruitmentService.respond(id, { action }); await load(); }

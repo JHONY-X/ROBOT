@@ -21,7 +21,13 @@ export default function AdminRecruitmentPage() {
     const [profileRows, qualificationRows, experienceRows, skillRows] = await Promise.all([professionalsService.adminProfiles(), professionalsService.adminQualifications(), professionalsService.adminExperiences(), professionalsService.skills()]);
     setProfiles(profileRows); setQualifications(qualificationRows); setExperiences(experienceRows); setSkills(skillRows);
   };
-  useEffect(() => { void load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load professional profiles.")); }, []);
+  useEffect(() => {
+    void Promise.all([professionalsService.adminProfiles(), professionalsService.adminQualifications(), professionalsService.adminExperiences(), professionalsService.skills()])
+      .then(([profileRows, qualificationRows, experienceRows, skillRows]) => {
+        setProfiles(profileRows); setQualifications(qualificationRows); setExperiences(experienceRows); setSkills(skillRows);
+      })
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load professional profiles."));
+  }, []);
   const reset = async (id: number) => {
     setBusyId(id); setError("");
     try { await recruitmentService.resetProfessionalRejections(id); await load(); }

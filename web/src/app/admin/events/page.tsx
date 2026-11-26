@@ -16,7 +16,7 @@ export default function AdminEventsPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const load = async () => setEvents(await eventsService.adminList());
-  useEffect(() => { void load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load events.")); }, []);
+  useEffect(() => { void eventsService.adminList().then(setEvents).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load events.")); }, []);
 
   const create = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setBusy(true); setError("");
