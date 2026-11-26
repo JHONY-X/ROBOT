@@ -49,6 +49,7 @@ export function CandidateCard({
             <p className="text-sm text-primary-600 font-medium">
               {candidate.role}
             </p>
+            <p className="text-xs text-slate-500">Profile ID: {candidate.id}</p>
           </div>
         </div>
       </div>

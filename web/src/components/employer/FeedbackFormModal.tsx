@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { X, Star, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { feedbackService, RecruitmentOutcome, EmployerFeedback } from "@/lib/api/services/feedback";
+import { feedbackApi } from "@/lib/api/services/feedback-api";
+type RecruitmentOutcome = "Shortlisted" | "Selected" | "Unsuccessful" | "Pending";
 
 export interface FeedbackInterviewData {
   interviewId: string;
@@ -64,14 +65,27 @@ export function FeedbackFormModal({ isOpen, onClose, interviewData }: FeedbackFo
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await feedbackService.submitFeedback({
-        ...formData,
-        ...interviewData,
-      } as Omit<EmployerFeedback, "id" | "submittedAt">);
+      const professionalId = Number(interviewData.candidateId);
+      if (!Number.isInteger(professionalId) || professionalId < 1) {
+        throw new Error("The professional profile ID is missing. Reopen the candidate from search and try again.");
+      }
+      const message = [
+        `Professional: ${interviewData.candidateName}`,
+        `Position: ${interviewData.positionTitle}`,
+        `Interview date: ${interviewData.interviewDate}`,
+        `Outcome: ${formData.outcome}`,
+        `Professional knowledge: ${formData.professionalKnowledge}/5`,
+        `Communication skills: ${formData.communicationSkills}/5`,
+        `Relevant experience: ${formData.relevantExperience}/5`,
+        `Overall suitability: ${formData.overallSuitability}/5`,
+        `Submitted by: ${formData.submittedBy}`,
+        formData.additionalComments.trim() ? `Comments: ${formData.additionalComments.trim()}` : "",
+      ].filter(Boolean).join("\n");
+      await feedbackApi.submit({ feedback_type: "organization", professional: professionalId, subject: `Interview feedback: ${interviewData.positionTitle}`, message });
       alert("Confidential feedback submitted. Thank you!");
       onClose();
     } catch (error) {
-      alert("Failed to submit feedback.");
+      alert(error instanceof Error ? error.message : "Failed to submit feedback.");
     } finally {
       setIsSubmitting(false);
     }

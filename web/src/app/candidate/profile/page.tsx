@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
 import { AccountSettings } from "@/components/account/AccountSettings";
+import { ProfessionalRecordsManager } from "@/components/professionals/ProfessionalRecordsManager";
 import { candidateService, CandidateProfile, AvailabilityStatus } from "@/lib/api/services/candidate";
 import { User, ShieldCheck, FileText, CheckCircle2, Clock, AlertCircle, Edit3, Save, Briefcase } from "lucide-react";
 
@@ -185,6 +186,7 @@ export default function CandidateProfilePage() {
             </div>
           </div>
         </div>
+        <ProfessionalRecordsManager />
         <AccountSettings />
       </div>
     </DashboardLayout>

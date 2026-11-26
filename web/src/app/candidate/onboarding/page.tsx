@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
 import { candidateService, CandidateProfile } from "@/lib/api/services/candidate";
+import { professionalsService, type Skill } from "@/lib/api/services/professionals";
 import { User, Briefcase, UploadCloud, CheckCircle2, ShieldCheck, ChevronRight, ChevronLeft } from "lucide-react";
 
 const STEPS = [
@@ -32,6 +33,7 @@ export default function CandidateOnboardingPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState("");
+  const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
 
   // Form State initialized with empty data
   const [profile, setProfile] = useState<CandidateProfile>({
@@ -44,7 +46,16 @@ export default function CandidateOnboardingPage() {
     employmentPreferences: "", availability: "Immediate",
     preferredWorkArrangement: "Full-time",
     documents: [], consentGiven: false, status: "Pending Review",
+    dateOfBirth: "", gender: "female", profilePicture: null, licenseFile: null,
+    idFrontFile: null, idBackFile: null, crimeLetterFile: null,
+    educationInstitution: "", educationDocument: null,
   });
+
+  useEffect(() => {
+    professionalsService.skills().then(setAvailableSkills).catch((error: unknown) => {
+      console.error("Could not load professional skills.", error);
+    });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -102,8 +113,8 @@ export default function CandidateOnboardingPage() {
           <p className="text-slate-500 mt-2">Submit your credentials for Rohobot verification.</p>
         </div>
 
-        <div role="note" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Local demo only. Do not upload real identity, license, or other sensitive documents.
+        <div role="note" className="mb-6 rounded-xl border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-primary-900">
+          Complete your profile and upload the requested verification documents. Files are sent to the backend for review.
         </div>
 
         {/* Stepper */}
@@ -157,6 +168,18 @@ export default function CandidateOnboardingPage() {
                   <input type="tel" value={profile.phone} onChange={(e) => updateForm("phone", e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Date of birth *</label>
+                  <input required type="date" value={profile.dateOfBirth ?? ""} onChange={(e) => updateForm("dateOfBirth", e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Gender *</label>
+                  <select required value={profile.gender ?? "female"} onChange={(e) => updateForm("gender", e.target.value as "male" | "female")} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="female">Female</option><option value="male">Male</option></select>
+                </div>
+                <div className="col-span-1 sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Profile photo *</label>
+                  <input required type="file" accept="image/jpeg,image/png" onChange={(e) => updateForm("profilePicture", e.target.files?.[0] ?? null)} className="w-full rounded-lg border border-slate-300 p-2 text-sm" />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
                   <input type="email" value={profile.email} onChange={(e) => updateForm("email", e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
                 </div>
@@ -202,6 +225,10 @@ export default function CandidateOnboardingPage() {
                   <input type="text" placeholder="e.g. BSc in Nursing, Addis Ababa University (2018)" value={profile.educationBackground} onChange={(e) => updateForm("educationBackground", e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
                 </div>
                 <div className="col-span-1 sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Institution *</label>
+                  <input required type="text" value={profile.educationInstitution ?? ""} onChange={(e) => updateForm("educationInstitution", e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+                <div className="col-span-1 sm:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Previous Employment *</label>
                   <input type="text" placeholder="e.g. St. Paul's Hospital (2019-2023)" value={profile.previousEmployment} onChange={(e) => updateForm("previousEmployment", e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
                 </div>
@@ -230,6 +257,10 @@ export default function CandidateOnboardingPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Professional Summary *</label>
                   <textarea rows={3} value={profile.professionalSummary} onChange={(e) => updateForm("professionalSummary", e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 resize-none" />
                 </div>
+                <div className="col-span-1 sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Skills *</label>
+                  {availableSkills.length ? <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 p-3">{availableSkills.map((skill) => <label key={skill.id} className="flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-sm"><input type="checkbox" checked={profile.skills.includes(skill.name)} onChange={(e) => updateForm("skills", e.target.checked ? [...profile.skills, skill.name] : profile.skills.filter((name) => name !== skill.name))} />{skill.name}</label>)}</div> : <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">No skills are available yet. Ask an administrator to add skills before submitting your profile.</p>}
+                </div>
               </div>
             </div>
           )}
@@ -238,17 +269,11 @@ export default function CandidateOnboardingPage() {
           {currentStep === 3 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
               <h2 className="text-xl font-semibold border-b border-slate-100 pb-3">Supporting Documents</h2>
-              <p className="text-sm text-slate-500 mb-4">Document upload is not connected in this local demo. Do not upload or enter real identity or license information.</p>
-              
-              <div className="space-y-4">
-                {["Educational Certificate", "Professional License", "Identification (ID/Passport)"].map((doc, i) => (
-                  <div key={i} className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center">
-                    <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-slate-700">{doc} upload preview</p>
-                    <p className="text-xs text-slate-500 mt-1">File transfer is not available in this demo.</p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm text-slate-600">Upload PDF, JPG, or PNG files. Each file must be 10 MB or smaller.</p>
+              <div className="grid gap-4 sm:grid-cols-2">{([
+                ["licenseFile", "Professional license *"], ["idFrontFile", "ID front *"], ["idBackFile", "ID back *"], ["crimeLetterFile", "Crime clearance letter *"],
+              ] as const).map(([field, label]) => <label key={field} className="block text-sm font-medium text-slate-700">{label}<input required type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => updateForm(field, e.target.files?.[0] ?? null)} className="mt-1.5 w-full rounded-lg border border-slate-300 p-2 text-sm" /></label>)}</div>
+              <label className="block text-sm font-medium text-slate-700">Education certificate *<input required type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => updateForm("educationDocument", e.target.files?.[0] ?? null)} className="mt-1.5 w-full rounded-lg border border-slate-300 p-2 text-sm" /></label>
             </div>
           )}
 
@@ -259,12 +284,12 @@ export default function CandidateOnboardingPage() {
               
               <div className="rounded-lg border border-primary-200 bg-primary-50 p-4 text-sm text-primary-800">
                 <p className="font-medium mb-2 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Privacy Notice</p>
-                <p>This local demo does not securely collect or store professional documents. Do not submit real personal information. Production data handling, consent, and privacy terms must be implemented and reviewed before launch.</p>
+                <p>Your profile and uploaded documents will be processed for account verification and professional matching.</p>
               </div>
 
               <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
                 <input type="checkbox" checked={profile.consentGiven} onChange={(e) => updateForm("consentGiven", e.target.checked)} className="mt-1 w-4 h-4 text-primary-600 rounded focus:ring-primary-500" />
-                <span className="text-sm text-slate-700">I understand this is a local demo and will not submit real personal or sensitive information.</span>
+                <span className="text-sm text-slate-700">I consent to the processing of my profile and documents for verification and recruitment.</span>
               </label>
             </div>
           )}

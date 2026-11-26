@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Calendar, MapPin, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { interviewService } from "@/lib/api/services/interview";
+import { recruitmentService } from "@/lib/api/services/recruitment";
 import { todayISO } from "@/lib/date";
 
 interface InterviewRequestModalProps {
@@ -33,20 +33,18 @@ export function InterviewRequestModal({ isOpen, onClose, candidateName, candidat
     }
     setIsSubmitting(true);
     try {
-      await interviewService.createRequest({
-        candidateId,
-        candidateName,
-        employerName: "Your Organization", // Hardcoded for now, would come from Auth context
-        positionTitle: formData.positionTitle,
-        date: formData.date,
-        time: formData.time,
-        location: formData.location,
-        notes: formData.notes,
+      const isMeetingLink = /^https?:\/\//i.test(formData.location);
+      await recruitmentService.createApplication({
+        professional_id: Number(candidateId),
+        request_type: "interview",
+        description: [formData.positionTitle, formData.notes].filter(Boolean).join("\n\n"),
+        deadline: new Date(`${formData.date}T${formData.time}`).toISOString(),
+        ...(isMeetingLink ? { meeting_link: formData.location } : { address: formData.location }),
       });
-      alert("Interview request sent successfully!");
+      alert(`Interview request sent to ${candidateName}.`);
       onClose();
-    } catch {
-      alert("Failed to send request.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to send request.");
     } finally {
       setIsSubmitting(false);
     }
