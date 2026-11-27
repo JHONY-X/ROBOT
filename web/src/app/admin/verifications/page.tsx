@@ -53,7 +53,7 @@ export default function AdminVerificationsPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-primary-600" /> Verification Center
+            <ShieldCheck className="w-6 h-6 text-primary-600" /> Candidate Review
           </h1>
           <p className="text-slate-500 text-sm mt-1">Review and approve candidate credentials and employer registrations.</p>
         </div>
