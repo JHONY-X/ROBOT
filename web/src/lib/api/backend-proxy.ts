@@ -4,6 +4,7 @@ import { backendRequest, readBackendBody } from "@/lib/auth/backend";
 export type BackendRouteRule = {
   pattern: RegExp;
   methods: string[];
+  timeoutMs?: number;
 };
 
 type ProxyContext = { params: Promise<{ path?: string[] }> };
@@ -57,6 +58,7 @@ export async function proxyBackendEndpoint(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: body?.byteLength ? body : undefined,
+    ...(rule.timeoutMs ? { signal: AbortSignal.timeout(rule.timeoutMs) } : {}),
   });
 
   try {
@@ -83,9 +85,10 @@ export async function proxyBackendEndpoint(
     return result;
   } catch (error) {
     console.error(`Backend proxy failed for ${request.method} ${backendPath}`, error);
+    const timedOut = error instanceof Error && error.name === "TimeoutError";
     return NextResponse.json(
-      { error: "The API backend could not be reached." },
-      { status: 502 },
+      { error: timedOut ? "The profile request timed out. Please try again." : "The API backend could not be reached." },
+      { status: timedOut ? 504 : 502 },
     );
   }
 }

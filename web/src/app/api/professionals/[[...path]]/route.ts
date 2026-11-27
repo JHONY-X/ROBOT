@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 const ROUTES: BackendRouteRule[] = [
   { pattern: /^profile\/$/, methods: ["POST"] },
-  { pattern: /^profile\/me\/$/, methods: ["GET", "PUT", "PATCH"] },
+  { pattern: /^profile\/me\/$/, methods: ["GET", "PUT", "PATCH"], timeoutMs: 20_000 },
   { pattern: /^candidate\/$/, methods: ["GET"] },
   { pattern: /^qualifications\/$/, methods: ["GET", "POST"] },
   { pattern: /^qualifications\/\d+\/$/, methods: ["GET", "PUT", "PATCH", "DELETE"] },
