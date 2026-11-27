@@ -1,43 +1,29 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Copy, MailPlus, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
+import Link from "next/link";
+import { History, MailPlus, RefreshCw, ShieldCheck } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
-import { invitationService, type Invitation, type InvitationControl } from "@/lib/api/services/invitation";
-
-type InvitationFilter = "all" | "verified" | "unverified" | "sent" | "not-sent";
+import { invitationService, type InvitationControl } from "@/lib/api/services/invitation";
 
 export default function AdminInvitationsPage() {
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [controls, setControls] = useState<InvitationControl[]>([]);
   const [fullName, setFullName] = useState("");
   const [emailAddress, setEmailAddress] = useState("");
-  const [invitationFilter, setInvitationFilter] = useState<InvitationFilter>("all");
-  const [invitationDetail, setInvitationDetail] = useState<Invitation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [busyId, setBusyId] = useState<number | null>(null);
   const [busyControl, setBusyControl] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [notice, setNotice] = useState("");
 
   const isCreateEndpoint = (endpoint: string) =>
     endpoint.trim().replace(/\/+$/, "").toLowerCase().endsWith("api/v1/invite/create");
-  const filteredInvitations = invitations.filter((invitation) => {
-    if (invitationFilter === "verified") return invitation.is_verified;
-    if (invitationFilter === "unverified") return !invitation.is_verified;
-    if (invitationFilter === "sent") return invitation.is_sent;
-    if (invitationFilter === "not-sent") return !invitation.is_sent;
-    return true;
-  });
-
   useEffect(() => {
     let active = true;
-    Promise.all([invitationService.list(), invitationService.getControl()])
-      .then(([rows, settings]) => {
+    invitationService.getControl()
+      .then((settings) => {
         if (!active) return;
-        setInvitations(rows);
         setControls(settings);
       })
       .catch((error: unknown) => { if (active) setErrorMessage(error instanceof Error ? error.message : "Could not load invitations."); })
@@ -49,8 +35,7 @@ export default function AdminInvitationsPage() {
     setIsLoading(true);
     setErrorMessage("");
     try {
-      const [rows, settings] = await Promise.all([invitationService.list(), invitationService.getControl()]);
-      setInvitations(rows);
+      const settings = await invitationService.getControl();
       setControls(settings);
     } catch (error) { setErrorMessage(error instanceof Error ? error.message : "Could not refresh invitations."); }
     finally { setIsLoading(false); }
@@ -66,10 +51,8 @@ export default function AdminInvitationsPage() {
       setNotice(result.message);
       setFullName("");
       setEmailAddress("");
-      await refresh();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not create invitation.");
-      invitationService.list().then(setInvitations).catch(() => undefined);
     } finally { setIsCreating(false); }
   };
 
@@ -85,40 +68,10 @@ export default function AdminInvitationsPage() {
     finally { setBusyControl(""); }
   };
 
-  const manageInvitation = async (id: number, action: "detail" | "send" | "delete") => {
-    setBusyId(id);
-    setErrorMessage("");
-    setNotice("");
-    try {
-      if (action === "detail") {
-        const result = await invitationService.get(id);
-        const detail = Array.isArray(result) ? result.find((item) => item.id === id) : result;
-        if (!detail) throw new Error("The backend returned a list instead of the requested invitation detail.");
-        setInvitationDetail(detail);
-      } else if (action === "delete") {
-        const result = await invitationService.delete(id);
-        setNotice(result.message);
-        setInvitations((items) => items.filter((item) => item.id !== id));
-      } else {
-        const result = await invitationService.updateSendingState(id, true);
-        setNotice(result.message);
-        await refresh();
-      }
-    } catch (error) { setErrorMessage(error instanceof Error ? error.message : "Could not manage invitation."); }
-    finally { setBusyId(null); }
-  };
-
-  const copyToken = async (token: string) => {
-    try {
-      await navigator.clipboard.writeText(token);
-      setNotice("Invitation token copied.");
-    } catch { setErrorMessage("Could not copy the token automatically."); }
-  };
-
   return (
     <DashboardLayout role="admin">
       <div className="mx-auto max-w-5xl space-y-6">
-        <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Admin tools</p><h1 className="mt-1 text-2xl font-bold text-slate-900">Candidate invitations</h1><p className="mt-2 text-sm text-slate-600">Create invitations, control the create endpoint, and review verification and sending status.</p></div><Button type="button" variant="outline" size="sm" className="gap-2" isLoading={isLoading} onClick={refresh}><RefreshCw className="h-4 w-4" />Refresh</Button></header>
+        <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Admin tools</p><h1 className="mt-1 text-2xl font-bold text-slate-900">Candidate invitations</h1><p className="mt-2 text-sm text-slate-600">Create invitations and manage invitation creation settings.</p><Link href="/admin/invitations/history" className="mt-4 inline-flex items-center gap-2 rounded-lg border border-primary-200 bg-white px-4 py-2 text-sm font-semibold text-primary-800 shadow-sm hover:bg-primary-50"><History className="h-4 w-4" />View invitation history</Link></div><Button type="button" variant="outline" size="sm" className="gap-2" isLoading={isLoading} onClick={refresh}><RefreshCw className="h-4 w-4" />Refresh settings</Button></header>
 
         {errorMessage && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{errorMessage}</p>}
         {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>}
@@ -137,28 +90,6 @@ export default function AdminInvitationsPage() {
           </form>
         </section>
 
-        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-700"><UserRound className="h-5 w-5" /></span><div><h2 className="font-semibold text-slate-900">Invitation history</h2><p className="text-sm text-slate-500">Email verification must complete before an invitation can be sent.</p></div></div>
-          <div className="flex gap-2 overflow-x-auto border-b border-slate-200" role="tablist" aria-label="Filter invitations">
-            {([
-              ["all", "All"],
-              ["verified", "Email verified"],
-              ["unverified", "Email unverified"],
-              ["sent", "Sent"],
-              ["not-sent", "Not sent"],
-            ] as const).map(([filter, label]) => (
-              <button key={filter} type="button" role="tab" id={`invitation-filter-${filter}`} aria-controls="invitation-history-panel" aria-selected={invitationFilter === filter} onClick={() => setInvitationFilter(filter)} className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${invitationFilter === filter ? "border-primary-600 text-primary-800" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <div role="tabpanel" id="invitation-history-panel" aria-labelledby={`invitation-filter-${invitationFilter}`}>
-            {isLoading ? <p role="status" className="py-6 text-center text-sm text-slate-500">Loading invitations...</p> : filteredInvitations.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="px-3 py-3">ID</th><th className="px-3 py-3">Name</th><th className="px-3 py-3">Email</th><th className="px-3 py-3">Email verified</th><th className="px-3 py-3">Invitation sent</th><th className="px-3 py-3">Expires</th><th className="px-3 py-3">Manage</th></tr></thead><tbody className="divide-y divide-slate-100">{filteredInvitations.map((invitation) => <tr key={invitation.id ?? invitation.email_address}><td className="px-3 py-3">{invitation.id ?? "—"}</td><td className="px-3 py-3 font-medium text-slate-900">{invitation.full_name}</td><td className="px-3 py-3">{invitation.email_address}</td><td className="px-3 py-3">{invitation.is_verified ? "Verified" : "Unverified"}</td><td className="px-3 py-3">{invitation.is_sent ? "Sent" : "Not sent"}</td><td className="px-3 py-3">{invitation.expires_date ? new Date(invitation.expires_date).toLocaleString() : "—"}</td><td className="px-3 py-3">{invitation.id ? <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" disabled={busyId !== null} onClick={() => manageInvitation(invitation.id!, "detail")}>Details</Button><Button type="button" size="sm" isLoading={busyId === invitation.id} disabled={busyId !== null || !invitation.is_verified} onClick={() => manageInvitation(invitation.id!, "send")}>{invitation.is_sent ? "Resend" : "Send"}</Button><Button type="button" size="sm" variant="danger" disabled={busyId !== null || invitation.is_sent} onClick={() => manageInvitation(invitation.id!, "delete")}>Delete</Button></div> : <span className="text-xs text-amber-800">Actions unavailable: invitation ID missing.</span>}</td></tr>)}</tbody></table></div> : <div className="rounded-xl border border-dashed border-slate-300 py-10 text-center"><UserRound className="mx-auto h-8 w-8 text-slate-400" /><p className="mt-2 text-sm text-slate-600">No invitations match this filter.</p></div>}
-          </div>
-          {invitationDetail && <div className="rounded-xl border border-primary-100 bg-primary-50 p-4 text-sm"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold text-primary-950">{invitationDetail.full_name}</h3><p>{invitationDetail.email_address}</p><p className="mt-1">{invitationDetail.is_verified ? "Email verified" : "Email verification pending"} · {invitationDetail.is_sent ? "Invitation sent" : "Not sent"}</p></div><div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => copyToken(invitationDetail.token)}><Copy className="mr-1 h-4 w-4" />Copy token</Button><Button type="button" size="sm" variant="outline" onClick={() => setInvitationDetail(null)}>Close</Button></div></div></div>}
-        </section>
-
-        <p className="flex items-start gap-2 text-xs text-slate-500"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />The invitation email helpers and several manage endpoints currently have backend defects. The frontend reports their actual API errors; it does not create fake invitation success.</p>
       </div>
     </DashboardLayout>
   );

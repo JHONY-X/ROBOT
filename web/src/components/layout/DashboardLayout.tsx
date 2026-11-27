@@ -84,6 +84,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
     admin: [
       { name: "Overview", href: "/admin", icon: LayoutDashboard },
       { name: "Candidate Invitations", href: "/admin/invitations", icon: UserPlus },
+      { name: "Invitation History", href: "/admin/invitations/history", icon: History },
       { name: "Workflow Reviews", href: "/admin/reviews", icon: ShieldCheck },
       { name: "Candidate Review", href: "/admin/verifications", icon: ShieldCheck },
       { name: "Organization Review", href: "/admin/organizations", icon: Building2 },
@@ -99,6 +100,9 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
   };
 
   const currentNav = navItems[role] || [];
+  const activeNavHref = currentNav
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .reduce((activeHref, item) => item.href.length > activeHref.length ? item.href : activeHref, "");
   const roleTitle = {
     candidate: "Professional",
     employer: "Employer",
@@ -135,8 +139,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
             {roleTitle} portal
           </div>
           {currentNav.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive = item.href === activeNavHref;
             return (
               <Link
                 key={item.name}
