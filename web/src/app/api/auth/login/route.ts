@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     if (
       typeof email !== "string" ||
       typeof password !== "string" ||
-      (requestedRole !== "candidate" && requestedRole !== "employer" && requestedRole !== "admin")
+      (requestedRole !== undefined && requestedRole !== "candidate" && requestedRole !== "employer" && requestedRole !== "admin")
     ) {
       return NextResponse.json({ error: "Enter your registered email and password." }, { status: 400 });
     }
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     const role = appRoleFromJwt(access);
-    if (!role || role !== requestedRole) {
+    if (!role || (requestedRole !== undefined && role !== requestedRole)) {
       return NextResponse.json({ error: "The account role does not match the selected sign-in form." }, { status: 403 });
     }
 
@@ -77,14 +77,14 @@ export async function POST(request: NextRequest) {
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
-    (requestedRole !== "candidate" && requestedRole !== "employer" && requestedRole !== "admin")
+    (requestedRole !== undefined && requestedRole !== "candidate" && requestedRole !== "employer" && requestedRole !== "admin")
   ) {
     return NextResponse.json({ error: "Enter your registered email and password." }, { status: 400 });
   }
 
   const { authenticateDemoAccount } = await import("@/lib/demo/invitations");
   const account = authenticateDemoAccount(email, password);
-  if (!account || account.role !== requestedRole) {
+  if (!account || (requestedRole !== undefined && account.role !== requestedRole)) {
     return NextResponse.json(
       { error: "Email/password is incorrect, or the account has not completed email verification." },
       { status: 401 }
