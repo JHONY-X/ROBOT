@@ -14,7 +14,7 @@ export default function CandidatePendingStatusPage() {
           Your email has been verified. A Rohobot admin must approve your candidate account before you can access recruitment features.
         </p>
         <div className="mt-6 flex items-center justify-center gap-4">
-          <SignOutButton />
+          <SignOutButton role="candidate" />
           <Link href="/" className="text-sm font-semibold text-primary-700 hover:underline">Home</Link>
         </div>
       </section>

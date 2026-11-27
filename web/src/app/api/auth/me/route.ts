@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   const sessionId = request.cookies.get("rohobot_session")?.value;
   const role = request.cookies.get("rohobot_role")?.value;
-  if (!sessionId || (role !== "candidate" && role !== "employer")) {
+  if (!sessionId || (role !== "candidate" && role !== "employer" && role !== "admin")) {
     return NextResponse.json({ error: "Sign-in is required." }, { status: 401 });
   }
 

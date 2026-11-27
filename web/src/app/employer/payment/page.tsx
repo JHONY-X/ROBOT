@@ -105,7 +105,7 @@ export default function EmployerPaymentPage() {
             <Button type="submit" className="w-full" isLoading={isSubmitting} disabled={isSubmitting || !selectedPlan || !selectedAccount}>Submit payment for admin review</Button>
           </form>
         )}
-        <div className="flex items-center justify-between"><Link href="/employer/packages" className="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:underline"><ArrowLeft className="h-4 w-4" /> Plans</Link><SignOutButton /></div>
+        <div className="flex items-center justify-between"><Link href="/employer/packages" className="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:underline"><ArrowLeft className="h-4 w-4" /> Plans</Link><SignOutButton role="employer" /></div>
       </div>
     </main>
   );

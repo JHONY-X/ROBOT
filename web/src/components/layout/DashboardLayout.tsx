@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -34,7 +34,30 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, role }: DashboardLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSessionVerified, setIsSessionVerified] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    let active = true;
+
+    const verifySession = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!response.ok) throw new Error("Session is not active.");
+        const result = (await response.json()) as { account?: { role?: string } };
+        if (!result.account || result.account.role !== role) {
+          window.location.replace(`/login?role=${role}`);
+          return;
+        }
+        if (active) setIsSessionVerified(true);
+      } catch {
+        if (active) window.location.replace(`/login?role=${role}`);
+      }
+    };
+
+    void verifySession();
+    return () => { active = false; };
+  }, [role]);
 
   const navItems = {
     candidate: [
@@ -87,6 +110,10 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
     admin: "RA",
   }[role];
 
+  if (!isSessionVerified) {
+    return <main className="flex min-h-screen items-center justify-center bg-[var(--color-background)]"><p role="status" className="text-sm text-slate-600">Checking your session...</p></main>;
+  }
+
   return (
     <div className="relative min-h-screen flex bg-[var(--color-background)]">
       <div className="brand-ribbon fixed inset-x-0 top-0 z-30 h-1" aria-hidden="true" />
@@ -130,7 +157,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
           })}
         </nav>
         <div className="p-4 border-t border-slate-100">
-          <SignOutButton />
+          <SignOutButton role={role} />
         </div>
       </aside>
 

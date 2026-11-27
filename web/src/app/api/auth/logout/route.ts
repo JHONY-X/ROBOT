@@ -6,9 +6,7 @@ import { backendRequest } from "@/lib/auth/backend";
 export async function POST(request: Request) {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get("rohobot_session")?.value;
-  if (sessionId?.startsWith("demo-")) {
-    revokeDemoSession(sessionId);
-  }
+  if (sessionId) revokeDemoSession(sessionId);
 
   const refresh = cookieStore.get("rohobot_refresh_token")?.value;
   const access = cookieStore.get("rohobot_access_token")?.value;

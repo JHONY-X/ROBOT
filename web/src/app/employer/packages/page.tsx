@@ -60,7 +60,7 @@ export default function EmployerPackagesPage() {
             <Button type="button" className="w-full sm:w-auto" disabled={!selectedPlanId || isContinuing} isLoading={isContinuing} onClick={continueToPayment}>Continue to payment</Button>
           </>
         ) : <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">There are no active subscription plans available right now.</p>}
-        <div className="flex justify-end"><SignOutButton /></div>
+        <div className="flex justify-end"><SignOutButton role="employer" /></div>
       </div>
     </main>
   );

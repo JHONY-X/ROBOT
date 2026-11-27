@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
-export function SignOutButton() {
-  const router = useRouter();
+type SignOutButtonProps = {
+  role: "candidate" | "employer" | "admin";
+};
+
+export function SignOutButton({ role }: SignOutButtonProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -20,8 +22,7 @@ export function SignOutButton() {
         throw new Error(`Sign-out request failed with status ${response.status}`);
       }
 
-      router.replace("/");
-      router.refresh();
+      window.location.replace(`/login?role=${role}`);
     } catch (error) {
       console.error("Failed to sign out.", error);
       setErrorMessage("Could not sign out. Please try again.");

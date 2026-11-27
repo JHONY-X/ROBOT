@@ -10,7 +10,7 @@ export default function EmployerPendingPage() {
         <h1 className="mt-5 text-2xl font-bold text-slate-900">Payment awaiting admin review</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">Your payment receipt link and transaction ID have been submitted. Recruitment features remain locked until a Rohobot admin reviews the submission.</p>
         <p role="note" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Your payment submission is stored as pending. The backend administrator must approve or reject it.</p>
-        <div className="mt-6 flex items-center justify-center gap-5"><Link href="/employer/subscription" className="text-sm font-semibold text-primary-700 hover:underline">View subscription status</Link><SignOutButton /></div>
+        <div className="mt-6 flex items-center justify-center gap-5"><Link href="/employer/subscription" className="text-sm font-semibold text-primary-700 hover:underline">View subscription status</Link><SignOutButton role="employer" /></div>
       </section>
     </main>
   );
