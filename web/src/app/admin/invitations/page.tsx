@@ -20,6 +20,9 @@ export default function AdminInvitationsPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [notice, setNotice] = useState("");
 
+  const isCreateEndpoint = (endpoint: string) =>
+    endpoint.trim().replace(/\/+$/, "").toLowerCase().endsWith("api/v1/invite/create");
+
   useEffect(() => {
     let active = true;
     Promise.all([invitationService.list(), invitationService.getControl()])
@@ -123,7 +126,7 @@ export default function AdminInvitationsPage() {
 
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-700"><ShieldCheck className="h-5 w-5" /></span><div><h2 className="font-semibold text-slate-900">Invitation endpoint control</h2><p className="text-sm text-slate-500">Settings are keyed by the exact endpoint path returned by the backend.</p></div></div>
-          {controls.length ? <div className="divide-y divide-slate-100">{controls.map((setting) => <div key={setting.endpoint} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="font-medium text-slate-900">{setting.endpoint}</p><p className="text-xs text-slate-500">Creation endpoint {setting.enabled ? "enabled" : "disabled"}</p></div><Button type="button" size="sm" variant={setting.enabled ? "outline" : "primary"} isLoading={busyControl === setting.endpoint} disabled={busyControl !== ""} onClick={() => updateControl(setting)}>{setting.enabled ? "Disable" : "Enable"}</Button></div>)}</div> : <p className="text-sm text-slate-600">No invitation endpoint settings are configured.</p>}
+          {controls.length ? <div className="divide-y divide-slate-100">{controls.map((setting) => <div key={setting.endpoint} className="flex flex-wrap items-center justify-between gap-3 py-3"><div>{!isCreateEndpoint(setting.endpoint) && <p className="font-medium text-slate-900">{setting.endpoint}</p>}<p className="text-xs font-bold text-slate-500">Creation endpoint {setting.enabled ? "enabled" : "disabled"}</p></div><Button type="button" size="sm" variant={setting.enabled ? "outline" : "primary"} isLoading={busyControl === setting.endpoint} disabled={busyControl !== ""} onClick={() => updateControl(setting)}>{setting.enabled ? "Disable" : "Enable"}</Button></div>)}</div> : <p className="text-sm text-slate-600">No invitation endpoint settings are configured.</p>}
         </section>
 
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
