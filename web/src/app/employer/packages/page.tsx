@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Building2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SignOutButton } from "@/components/layout/SignOutButton";
 import { subscriptionService, type SubscriptionPlan } from "@/lib/api/services/subscription";
+import { organizationApi, type VerificationStatus } from "@/lib/api/services/organization";
 
 export default function EmployerPackagesPage() {
   const router = useRouter();
@@ -14,12 +16,19 @@ export default function EmployerPackagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isContinuing, setIsContinuing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [organizationStatus, setOrganizationStatus] = useState<VerificationStatus | null>(null);
 
   useEffect(() => {
     let active = true;
-    subscriptionService.listPlans()
-      .then((data) => { if (active) setPlans(data); })
-      .catch((error: unknown) => { if (active) setErrorMessage(error instanceof Error ? error.message : "Could not load plans."); })
+    organizationApi.getMine()
+      .then(async (organization) => {
+        if (!active) return;
+        setOrganizationStatus(organization.verification_status);
+        if (organization.verification_status !== "verified") return;
+        const data = await subscriptionService.listPlans();
+        if (active) setPlans(data);
+      })
+      .catch((error: unknown) => { if (active) setErrorMessage(error instanceof Error ? error.message : "Could not load organization status."); })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, []);
@@ -41,9 +50,20 @@ export default function EmployerPackagesPage() {
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100 text-primary-700"><Building2 className="h-6 w-6" /></span>
           <div><p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Employer subscription</p><h1 className="text-2xl font-bold text-slate-900">Choose a plan</h1></div>
         </header>
-        <p className="rounded-xl border border-primary-100 bg-primary-50 p-4 text-sm text-primary-900">Select a plan, then submit your bank transfer or Telebirr reference and public receipt link. Your subscription remains pending until an administrator reviews the payment.</p>
+        {organizationStatus === "verified" && <p className="rounded-xl border border-primary-100 bg-primary-50 p-4 text-sm text-primary-900">Select a plan, then submit your bank transfer or Telebirr reference and public receipt link. Your subscription remains pending until an administrator reviews the payment.</p>}
         {errorMessage && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{errorMessage}</p>}
-        {isLoading ? <p role="status" className="py-8 text-sm text-slate-600">Loading available plans...</p> : plans.length ? (
+        {isLoading ? <p role="status" className="py-8 text-sm text-slate-600">Checking organization approval...</p> : errorMessage ? (
+          <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+            <p>Subscription plans are hidden until your organization approval can be confirmed.</p>
+            <p>Resolve the organization status issue, then try again.</p>
+          </section>
+        ) : organizationStatus !== "verified" ? (
+          <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+            <h2 className="font-semibold">Organization approval required</h2>
+            <p>{organizationStatus === "rejected" ? "Your organization was not approved. Update your organization profile or documents and submit them for review." : organizationStatus === "pending" ? "Your organization is awaiting verification. Subscription plans will be available after approval." : "Create your organization profile and complete verification before choosing a subscription."}</p>
+            <Link href="/employer/profile" className="inline-flex font-semibold text-primary-800 underline">Review organization profile</Link>
+          </section>
+        ) : plans.length ? (
           <>
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Available subscription plans">
               {plans.map((plan) => (

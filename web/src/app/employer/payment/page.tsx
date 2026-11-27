@@ -7,6 +7,7 @@ import { ArrowLeft, CreditCard, ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SignOutButton } from "@/components/layout/SignOutButton";
 import { subscriptionService, SubscriptionApiError, type PaymentAccount, type SubscriptionPlan } from "@/lib/api/services/subscription";
+import { organizationApi, type VerificationStatus } from "@/lib/api/services/organization";
 
 export default function EmployerPaymentPage() {
   const router = useRouter();
@@ -19,12 +20,17 @@ export default function EmployerPaymentPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [organizationStatus, setOrganizationStatus] = useState<VerificationStatus | null>(null);
 
   useEffect(() => {
     let active = true;
     const queryPlanId = Number(new URLSearchParams(window.location.search).get("plan_id"));
-    Promise.all([subscriptionService.listPlans(), subscriptionService.listPaymentAccounts()])
-      .then(([availablePlans, availableAccounts]) => {
+    organizationApi.getMine()
+      .then(async (organization) => {
+        if (!active) return;
+        setOrganizationStatus(organization.verification_status);
+        if (organization.verification_status !== "verified") return;
+        const [availablePlans, availableAccounts] = await Promise.all([subscriptionService.listPlans(), subscriptionService.listPaymentAccounts()]);
         if (!active) return;
         setPlans(availablePlans);
         setAccounts(availableAccounts);
@@ -32,7 +38,7 @@ export default function EmployerPaymentPage() {
         setPlanId(selected?.id ?? null);
         setAccountId(availableAccounts[0]?.id ?? null);
       })
-      .catch((error: unknown) => { if (active) setErrorMessage(error instanceof Error ? error.message : "Could not load payment details."); })
+      .catch((error: unknown) => { if (active) setErrorMessage(error instanceof Error ? error.message : "Could not verify organization approval."); })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, []);
@@ -69,7 +75,13 @@ export default function EmployerPaymentPage() {
       <div className="mx-auto max-w-3xl space-y-6">
         <header><p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Employer subscription</p><h1 className="mt-1 text-2xl font-bold text-slate-900">Submit payment</h1></header>
         {errorMessage && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{errorMessage}</p>}
-        {isLoading ? <p role="status" className="py-6 text-sm text-slate-600">Loading plans and payment accounts...</p> : !plans.length || !accounts.length ? (
+        {isLoading ? <p role="status" className="py-6 text-sm text-slate-600">Checking organization approval...</p> : organizationStatus !== "verified" ? (
+          <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+            <h2 className="font-semibold">Organization approval required</h2>
+            <p>{errorMessage || (organizationStatus === "rejected" ? "Your organization was not approved. Update your organization profile or documents and submit them for review." : organizationStatus === "pending" ? "Your organization is awaiting verification. You can submit a subscription payment after approval." : "Create your organization profile and complete verification before submitting a subscription payment.")}</p>
+            <Link href="/employer/profile" className="inline-flex font-semibold text-primary-800 underline">Review organization profile</Link>
+          </section>
+        ) : !plans.length || !accounts.length ? (
           <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Payment cannot be submitted because no active plan or payment account is available. Contact an administrator.</p>
         ) : (
           <form onSubmit={submitPayment} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
