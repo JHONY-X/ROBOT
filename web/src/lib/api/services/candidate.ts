@@ -2,7 +2,7 @@ import { backendApiRequest } from "./backend-request";
 import { professionalsService, type ProfessionalProfile, type ProfessionalProfileInput } from "./professionals";
 
 export type VerificationStatus = "Unverified" | "Pending Review" | "Verified" | "Rejected";
-export type AvailabilityStatus = "Immediate" | "1 Week" | "1 Month" | "Not Available";
+export type AvailabilityStatus = "available" | "unavailable" | "employed";
 export interface CandidateProfile {
   id?: string;
   fullName: string;
@@ -43,8 +43,7 @@ const displayStatus = (status: ProfessionalProfile["verification_status"]): Veri
   return "Unverified";
 };
 
-const apiAvailability = (status: AvailabilityStatus): ProfessionalProfile["availability_status"] =>
-  status === "Not Available" ? "unavailable" : "available";
+const apiAvailability = (status: AvailabilityStatus): ProfessionalProfile["availability_status"] => status;
 const apiEmploymentPreference = (value: CandidateProfile["preferredWorkArrangement"]): ProfessionalProfile["employment_preference"] => {
   if (value === "Part-time") return "part_time";
   if (value === "Contract") return "contract";
@@ -89,7 +88,7 @@ async function toViewProfile(profile: ProfessionalProfile): Promise<CandidatePro
   try { account = await backendApiRequest<AccountResponse>("/api/auth/me"); } catch { /* Profile data remains usable without account metadata. */ }
   const level = profile.qualifications?.find((item) => item.qualification_type === "education");
   const experiences = profile.work_experiences ?? [];
-  const availability: AvailabilityStatus = profile.availability_status === "unavailable" ? "Not Available" : "Immediate";
+  const availability: AvailabilityStatus = profile.availability_status;
   return {
     id: String(profile.id),
     fullName: account?.account?.name ?? `Professional #${profile.user}`,

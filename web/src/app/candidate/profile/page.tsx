@@ -179,10 +179,9 @@ export default function CandidateProfilePage() {
                 disabled={isUpdatingAvailability}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 text-sm mb-2"
               >
-                <option value="Immediate">Immediate</option>
-                <option value="1 Week">1 Week</option>
-                <option value="1 Month">1 Month</option>
-                <option value="Not Available">Not Available</option>
+                <option value="available">Available</option>
+                <option value="unavailable">Unavailable</option>
+                <option value="employed">Employed</option>
               </select>
               {isUpdatingAvailability && <p className="text-xs text-primary-600">Updating...</p>}
               <p className="text-xs text-slate-500 mt-2">Employers use this to filter candidates.</p>

@@ -43,14 +43,14 @@ function mapProfile(profile: ProfessionalProfile): MatchedCandidate {
     ?? qualifications.find((item) => item.qualification_type === "education")?.title ?? "Not listed";
   const category = profile.professional_category === "nurse" ? "Registered Nurse" : profile.professional_category === "midwife" ? "Midwife" : profile.professional_category === "caregiver" ? "Caregiver" : "Healthcare Professional";
   const name = typeof profile.full_name === "string" ? profile.full_name : `Professional #${profile.id}`;
-  const availability: AvailabilityStatus = profile.availability_status === "unavailable" ? "Not Available" : "Immediate";
+  const availability: AvailabilityStatus = profile.availability_status;
   const workArrangement: WorkArrangement = profile.employment_preference === "part_time" ? "Part-time" : profile.employment_preference === "contract" ? "Contract" : profile.employment_preference === "temporary" ? "Shift Work" : "Full-time";
   return {
     id: String(profile.id), userId: profile.user, name, role: category, qualification,
     experienceYears: experience.length, location: profile.current_location,
     professionalSummary: profile.professional_summary, skills: profile.skills,
     availability, workArrangement, isVerified: profile.verification_status === "verified",
-    isActive: profile.availability_status !== "unavailable", matchScore: 0, matchReasons: [],
+    isActive: profile.availability_status === "available", matchScore: 0, matchReasons: [],
     isSaved: savedIds.has(String(profile.id)),
   };
 }
@@ -70,7 +70,7 @@ export const employerService = {
     }).map((candidate) => {
       let score = 50 + candidate.experienceYears * config.minExperienceWeight;
       const reasons: MatchReason[] = [];
-      if (candidate.availability === "Immediate") { score += config.immediateAvailabilityBoost; reasons.push({ label: "Available now", type: "positive" }); }
+      if (candidate.availability === "available") { score += config.immediateAvailabilityBoost; reasons.push({ label: "Available now", type: "positive" }); }
       if (candidate.experienceYears >= 5) { score += config.highExperienceBoost; reasons.push({ label: "5+ years experience", type: "positive" }); }
       if (criteria.location && normalize(candidate.location) === normalize(criteria.location)) { score += config.locationMatchBoost; reasons.push({ label: "Preferred location", type: "positive" }); }
       return { ...candidate, matchScore: Math.min(score, 100), matchReasons: reasons };

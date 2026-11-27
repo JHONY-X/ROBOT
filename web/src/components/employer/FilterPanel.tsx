@@ -108,9 +108,9 @@ export function FilterPanel({ criteria, onChange }: FilterPanelProps) {
             className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             <option value="">Any availability</option>
-            <option value="Immediate">Immediate</option>
-            <option value="1 Week">Within 1 week</option>
-            <option value="1 Month">Within 1 month</option>
+            <option value="available">Available</option>
+            <option value="unavailable">Unavailable</option>
+            <option value="employed">Employed</option>
           </select>
         </div>
 

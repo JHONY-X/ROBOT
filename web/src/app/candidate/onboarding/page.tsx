@@ -43,7 +43,7 @@ export default function CandidateOnboardingPage() {
     yearsOfExperience: 0, previousEmployment: "",
     professionalSummary: "", skills: [],
     currentLocation: "", preferredLocation: "",
-    employmentPreferences: "", availability: "Immediate",
+    employmentPreferences: "", availability: "available",
     preferredWorkArrangement: "Full-time",
     documents: [], consentGiven: false, status: "Pending Review",
     dateOfBirth: "", gender: "female", profilePicture: null, licenseFile: null,

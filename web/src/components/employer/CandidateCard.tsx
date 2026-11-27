@@ -113,12 +113,14 @@ export function CandidateCard({
       <div className="pt-4 border-t border-slate-100 flex items-center justify-between mt-auto">
         <span
           className={`text-xs font-medium px-2 py-1 rounded-full ${
-            candidate.availability === "Immediate"
+            candidate.availability === "available"
               ? "bg-emerald-50 text-emerald-700"
-              : "bg-amber-50 text-amber-700"
+              : candidate.availability === "employed"
+                ? "bg-blue-50 text-blue-700"
+                : "bg-amber-50 text-amber-700"
           }`}
         >
-          {candidate.availability}
+          {candidate.availability === "available" ? "Available" : candidate.availability === "unavailable" ? "Unavailable" : "Employed"}
         </span>
         <div className="flex gap-2">
           <button
