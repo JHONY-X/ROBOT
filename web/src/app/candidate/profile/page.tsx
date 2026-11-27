@@ -11,21 +11,30 @@ import { User, ShieldCheck, FileText, CheckCircle2, Clock, AlertCircle, Edit3, S
 export default function CandidateProfilePage() {
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
 
   useEffect(() => {
+    let active = true;
     const fetchProfile = async () => {
+      setIsLoading(true);
+      setLoadError("");
       try {
         const data = await candidateService.getMyProfile();
-        setProfile(data);
+        if (active) setProfile(data);
       } catch (error) {
         console.error(error);
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : "We could not load your profile. Please try again.");
+        }
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
-    fetchProfile();
-  }, []);
+    void fetchProfile();
+    return () => { active = false; };
+  }, [loadAttempt]);
 
   const handleAvailabilityChange = async (newStatus: AvailabilityStatus) => {
     if (!profile) return;
@@ -40,13 +49,25 @@ export default function CandidateProfilePage() {
     }
   };
 
-  if (isLoading || !profile) {
+  if (isLoading) {
     return (
       <DashboardLayout role="candidate">
         <div className="max-w-4xl mx-auto animate-pulse space-y-6">
           <div className="h-8 bg-slate-200 rounded w-1/3"></div>
           <div className="h-64 bg-slate-200 rounded-xl"></div>
         </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (loadError || !profile) {
+    return (
+      <DashboardLayout role="candidate">
+        <section className="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-white p-6 shadow-sm" aria-live="polite">
+          <h1 className="text-xl font-semibold text-slate-900">Your profile could not be loaded</h1>
+          <p className="mt-2 text-sm text-slate-600">{loadError || "No candidate profile was returned for this account."}</p>
+          <Button className="mt-5" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Try again</Button>
+        </section>
       </DashboardLayout>
     );
   }
