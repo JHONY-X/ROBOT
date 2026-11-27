@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
 import { declineMonitoringService, FlaggedCandidate } from "@/lib/api/services/decline-monitoring";
-import { AlertTriangle, ShieldCheck, FileText, ChevronDown, CheckCircle2, MessageSquare } from "lucide-react";
+import { AlertTriangle, ShieldCheck, FileText, ChevronDown, MessageSquare } from "lucide-react";
 
 export default function AdminDeclineMonitoringPage() {
   const [records, setRecords] = useState<FlaggedCandidate[]>([]);
@@ -14,7 +14,6 @@ export default function AdminDeclineMonitoringPage() {
   // Admin Action State
   const [actionModalId, setActionModalId] = useState<string | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
-  const [actionType, setActionType] = useState<"clear" | "annotate">("clear");
 
   const fetchRecords = async () => {
     setIsLoading(true);
@@ -42,11 +41,7 @@ export default function AdminDeclineMonitoringPage() {
 
   const handleAction = async () => {
     if (!actionModalId || !adminNotes) return;
-    if (actionType === "clear") {
-      await declineMonitoringService.clearFlag(actionModalId, adminNotes);
-    } else {
-      await declineMonitoringService.annotateFlag(actionModalId, adminNotes);
-    }
+    await declineMonitoringService.clearFlag(actionModalId, adminNotes);
     setActionModalId(null);
     setAdminNotes("");
     await fetchRecords();
@@ -146,16 +141,9 @@ export default function AdminDeclineMonitoringPage() {
                         <Button 
                           size="sm" 
                           className="bg-emerald-600 hover:bg-emerald-700"
-                          onClick={() => { setActionModalId(candidate.id); setActionType("clear"); }}
+                          onClick={() => setActionModalId(candidate.id)}
                         >
                           <ShieldCheck className="w-4 h-4 mr-1" /> Clear Flag
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => { setActionModalId(candidate.id); setActionType("annotate"); }}
-                        >
-                          <FileText className="w-4 h-4 mr-1" /> Add Note / Investigate
                         </Button>
                       </div>
                     )}
@@ -173,7 +161,7 @@ export default function AdminDeclineMonitoringPage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="p-6 border-b border-slate-100">
               <h2 className="text-lg font-bold text-slate-900">
-                {actionType === "clear" ? "Clear Candidate Flag" : "Add Investigation Note"}
+                Clear Candidate Flag
               </h2>
               <p className="text-sm text-slate-500 mt-1">Provide a justification for the audit trail.</p>
             </div>
@@ -183,7 +171,7 @@ export default function AdminDeclineMonitoringPage() {
                 value={adminNotes} 
                 onChange={(e) => setAdminNotes(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-                placeholder={actionType === "clear" ? "e.g. Candidate provided valid medical reasons. Flag cleared." : "e.g. Contacted candidate, awaiting response."}
+                placeholder="e.g. Candidate provided valid medical reasons. Flag cleared."
               />
             </div>
             <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
@@ -191,9 +179,9 @@ export default function AdminDeclineMonitoringPage() {
               <Button 
                 onClick={handleAction} 
                 disabled={!adminNotes}
-                variant={actionType === "clear" ? "primary" : "outline"}
+                variant="primary"
               >
-                Save Action
+                Clear Flag
               </Button>
             </div>
           </div>
